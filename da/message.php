@@ -13,7 +13,7 @@ $selected_conv_id = filter_input(INPUT_GET, 'conv_id', FILTER_VALIDATE_INT);
 $receiver_id = filter_input(INPUT_GET, 'receiver_id', FILTER_VALIDATE_INT);
 $view = filter_input(INPUT_GET, 'view', FILTER_UNSAFE_RAW) ?: 'active'; // 'active' or 'archived'
 
-// --- Mark selected conversation as read ---
+// --- Mark selected conversation as read BEFORE fetching the list ---
 if ($selected_conv_id) {
     $read_stmt = $conn->prepare("UPDATE messages SET read_at = CURRENT_TIMESTAMP WHERE conversation_id = ? AND sender_id != ? AND read_at IS NULL");
     $read_stmt->bind_param("ii", $selected_conv_id, $da_id);
@@ -67,17 +67,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty(trim($_POST['message_body'])
             $msg_stmt->close();
 
             // Notify Receiver
-            $notif_title = "New Message from DA Portal";
-            $notif_body = "Sent you a message.";
-            $notif_link = ($_SESSION['role'] === 'FARMER' ? "../farmer/message.php" : "../buyer/message.php") . "?conv_id=" . $selected_conv_id;
-            
-            // We need to know the receiver's role for the correct link
             $r_stmt = $conn->prepare("SELECT role FROM users WHERE id = ?");
             $r_stmt->bind_param("i", $actual_receiver_id);
             $r_stmt->execute();
             $r_role = $r_stmt->get_result()->fetch_assoc()['role'];
             $r_stmt->close();
             
+            $notif_title = "New Message from DA Portal";
+            $notif_body = "Sent you a message.";
             $notif_link = ($r_role === 'FARMER' ? "../farmer/message.php" : "../buyer/message.php") . "?conv_id=" . $selected_conv_id;
             NotificationModel::createNotification($conn, $actual_receiver_id, 'NEW_MESSAGE', $notif_title, $notif_body, $notif_link);
 
@@ -100,6 +97,8 @@ $conv_query = "
         other_user.first_name,
         other_user.last_name,
         other_user.role as participant_role,
+        other_user.address as participant_address,
+        other_user.created_at as participant_since,
         other_user.profile_picture as participant_profile_picture,
         cp_me.is_archived,
         (SELECT body FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1) as last_message,
@@ -125,7 +124,7 @@ $messages = [];
 $selected_participant = null;
 if ($selected_conv_id) {
     $p_stmt = $conn->prepare("
-        SELECT other_user.id as participant_id, other_user.first_name, other_user.last_name, other_user.role as participant_role, other_user.profile_picture as participant_profile_picture, cp_me.is_archived
+        SELECT other_user.id as participant_id, other_user.first_name, other_user.last_name, other_user.role as participant_role, other_user.address as participant_address, other_user.created_at as participant_since, other_user.profile_picture as participant_profile_picture, cp_me.is_archived
         FROM users other_user
         JOIN conversation_participants cp_other ON other_user.id = cp_other.user_id AND cp_other.conversation_id = ?
         JOIN conversation_participants cp_me ON cp_me.conversation_id = cp_other.conversation_id AND cp_me.user_id = ?
@@ -160,14 +159,16 @@ include '../includes/universal_header.php';
             <div class="dropdown">
                 <button class="btn btn-sm btn-light rounded-circle" data-bs-toggle="dropdown"><i class="bi bi-three-dots"></i></button>
                 <ul class="dropdown-menu dropdown-menu-end">
-                    <li><a class="dropdown-item" href="message.php?view=active"><i class="bi bi-chat-fill me-2"></i>Active</a></li>
-                    <li><a class="dropdown-item" href="message.php?view=archived"><i class="bi bi-archive-fill me-2"></i>Archived</a></li>
+                    <li><a class="dropdown-item" href="message.php?view=active"><i class="bi bi-chat-fill me-2"></i>Active Chats</a></li>
+                    <li><a class="dropdown-item" href="message.php?view=archived"><i class="bi bi-archive-fill me-2"></i>Archived Chats</a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><a class="dropdown-item text-primary" href="../action/Message/mark_all_read.php"><i class="bi bi-check-all me-2"></i>Mark all as read</a></li>
                 </ul>
             </div>
         </div>
-        <div class="conversations-scroll">
+        <div class="conversations-scroll" data-view="<?php echo $view; ?>" data-selected="<?php echo $selected_conv_id; ?>">
             <?php if (empty($conversations)): ?>
-                <div class="text-center text-muted p-4"><small>No conversations found.</small></div>
+                <div class="text-center text-muted p-4"><small>No <?php echo $view; ?> conversations found.</small></div>
             <?php else: ?>
                 <?php foreach ($conversations as $conv):
                     $isActive = ($selected_conv_id == $conv['conversation_id']);
@@ -183,12 +184,12 @@ include '../includes/universal_header.php';
                         </div>
                         <div class="conv-info">
                             <div class="d-flex justify-content-between align-items-center">
-                                <div class="conv-name text-truncate"><?php echo htmlspecialchars($conv['first_name'] . ' ' . $conv['last_name']); ?></div>
+                                <div class="conv-name text-truncate" style="max-width: 140px;"><?php echo htmlspecialchars($conv['first_name'] . ' ' . $conv['last_name']); ?></div>
                                 <?php if ($conv['unread_count'] > 0): ?>
                                     <span class="badge rounded-pill bg-danger" style="font-size: 0.65rem;"><?php echo $conv['unread_count']; ?></span>
                                 <?php endif; ?>
                             </div>
-                            <div class="conv-last-msg <?php echo $conv['unread_count'] > 0 ? 'fw-bold text-dark' : ''; ?>">
+                            <div class="conv-last-msg <?php echo $conv['last_message_deleted'] ? 'fst-italic' : ''; ?> <?php echo $conv['unread_count'] > 0 ? 'fw-bold text-dark' : ''; ?>">
                                 <small class="text-primary fw-bold"><?php echo $conv['participant_role']; ?></small>: 
                                 <?php echo htmlspecialchars($disp_msg); ?>
                             </div>
@@ -210,6 +211,18 @@ include '../includes/universal_header.php';
         <?php else: ?>
             <div class="chat-header justify-content-between">
                 <div class="d-flex align-items-center">
+                    <!-- Mobile Hamburger Menu for Chat View -->
+                    <div class="dropdown me-2 chat-menu-dropdown">
+                        <button class="btn btn-sm btn-light rounded-circle chat-menu-btn d-lg-none" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-list"></i>
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li><h6 class="dropdown-header">Navigation</h6></li>
+                            <li><a class="dropdown-item" href="message.php"><i class="bi bi-chat-left-text me-2"></i>Back to Conversations</a></li>
+                            <li><a class="dropdown-item" href="index.php"><i class="bi bi-speedometer2 me-2"></i>DA Dashboard</a></li>
+                        </ul>
+                    </div>
+
                     <div class="conv-avatar overflow-hidden" style="width: 40px; height: 40px; margin-right: 12px;">
                         <?php if (!empty($selected_participant['participant_profile_picture'])): ?>
                             <img src="../<?php echo $selected_participant['participant_profile_picture']; ?>" class="w-100 h-100" style="object-fit: cover;">
@@ -222,13 +235,16 @@ include '../includes/universal_header.php';
                         <small class="text-primary fw-bold"><?php echo $selected_participant['participant_role']; ?></small>
                     </div>
                 </div>
+                <button class="btn btn-sm btn-outline-primary rounded-pill px-3" id="toggleInfoBtn">
+                    <i class="bi bi-info-circle me-md-1"></i> <span class="d-none d-md-inline">Details</span>
+                </button>
             </div>
 
-            <div class="message-container" id="message-container">
+            <div class="message-container" id="message-container" data-conv-id="<?php echo $selected_conv_id; ?>" data-last-id="<?php echo empty($messages) ? 0 : end($messages)['id']; ?>">
                 <?php foreach ($messages as $message):
                     $isSent = ($message['sender_id'] == $da_id);
                 ?>
-                    <div class="message-row <?php echo $isSent ? 'sent' : 'received'; ?>">
+                    <div class="message-row <?php echo $isSent ? 'sent' : 'received'; ?>" data-id="<?php echo $message['id']; ?>">
                         <?php if (!$isSent): ?>
                             <div class="message-avatar overflow-hidden">
                                 <?php if (!empty($selected_participant['participant_profile_picture'])): ?>
@@ -242,6 +258,11 @@ include '../includes/universal_header.php';
                             <div class="message-body <?php echo $message['is_deleted'] ? 'message-deleted' : ''; ?>">
                                 <?php echo $message['is_deleted'] ? ($isSent ? "You unsent a message" : "Message unsent") : nl2br(htmlspecialchars($message['body'])); ?>
                             </div>
+                            <?php if (!$message['is_deleted'] && $isSent): ?>
+                                <div class="message-actions">
+                                    <a href="../action/Message/delete.php?message_id=<?php echo $message['id']; ?>&conv_id=<?php echo $selected_conv_id; ?>" class="action-icon-btn" onclick="return confirm('Unsend this message?')"><i class="bi bi-trash"></i></a>
+                                </div>
+                            <?php endif; ?>
                             <div class="message-time"><?php echo date('g:i a', strtotime($message['created_at'])); ?></div>
                         </div>
                     </div>
@@ -258,17 +279,74 @@ include '../includes/universal_header.php';
             </div>
         <?php endif; ?>
     </section>
+
+    <!-- Right Pane (Details) -->
+    <?php if ($selected_participant): ?>
+    <aside class="conversation-info-panel" id="infoPanel">
+        <div class="info-panel-header">
+            <button class="btn btn-sm btn-outline-secondary back-btn" id="infoPanelBackBtn"><i class="bi bi-arrow-left"></i></button>
+            <h5 class="info-panel-title">User Details</h5>
+        </div>
+        <div class="info-panel-content">
+            <div class="info-avatar overflow-hidden">
+                <?php if (!empty($selected_participant['participant_profile_picture'])): ?>
+                    <img src="../<?php echo $selected_participant['participant_profile_picture']; ?>" class="w-100 h-100" style="object-fit: cover;">
+                <?php else: ?>
+                    <i class="bi bi-person-circle" style="font-size: 3rem;"></i>
+                <?php endif; ?>
+            </div>
+            <div class="info-name"><?php echo htmlspecialchars($selected_participant['first_name'] . ' ' . $selected_participant['last_name']); ?></div>
+            <div class="info-role"><?php echo ucfirst(strtolower($selected_participant['participant_role'])); ?></div>
+            
+            <div class="info-actions">
+                <?php if (!empty($selected_participant['participant_address'])): ?>
+                    <div class="info-action-btn"><i class="bi bi-geo-alt"></i><span><?php echo htmlspecialchars($selected_participant['participant_address']); ?></span></div>
+                <?php endif; ?>
+                <div class="info-action-btn"><i class="bi bi-calendar3"></i><span>Member since <?php echo date('M Y', strtotime($selected_participant['participant_since'])); ?></span></div>
+
+                <hr class="w-100 my-2">
+                <a href="../action/Message/archive.php?conv_id=<?php echo $selected_conv_id; ?>&action=<?php echo $selected_participant['is_archived'] ? 'unarchive' : 'archive'; ?>" class="info-action-btn">
+                    <i class="bi bi-archive<?php echo $selected_participant['is_archived'] ? '-fill' : ''; ?>"></i>
+                    <span><?php echo $selected_participant['is_archived'] ? 'Unarchive' : 'Archive'; ?> Chat</span>
+                </a>
+                <a href="../action/Message/delete_conversation.php?conv_id=<?php echo $selected_conv_id; ?>" class="info-action-btn danger" onclick="return confirm('Are you sure? This will remove the conversation from your list.')">
+                    <i class="bi bi-trash-fill"></i><span>Delete Conversation</span>
+                </a>
+            </div>
+        </div>
+    </aside>
+    <?php endif; ?>
   </div>
 </div>
 
 <script>
+    var currentUserId = <?php echo $da_id; ?>;
+    var participantInitials = '<?php echo $selected_participant ? strtoupper(substr($selected_participant['first_name'], 0, 1) . substr($selected_participant['last_name'], 0, 1)) : ""; ?>';
+    var participantProfilePicture = '<?php echo $selected_participant ? $selected_participant['participant_profile_picture'] : ""; ?>';
+
     var messageContainer = document.getElementById('message-container');
     if(messageContainer) { messageContainer.scrollTop = messageContainer.scrollHeight; }
+
+    var toggleBtn = document.getElementById('toggleInfoBtn');
+    var infoPanel = document.getElementById('infoPanel');
+    if(toggleBtn && infoPanel) {
+        toggleBtn.addEventListener('click', function() {
+            infoPanel.classList.toggle('show');
+        });
+    }
 
     var tx = document.getElementById('message-input');
     if(tx) {
         tx.addEventListener("input", function() { this.style.height = "auto"; this.style.height = (this.scrollHeight) + "px"; }, false);
         tx.addEventListener('keydown', function(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this.form.submit(); } });
+    }
+
+    // Handle back button for info panel on mobile
+    var infoPanelBackBtn = document.getElementById('infoPanelBackBtn');
+    if (infoPanelBackBtn && infoPanel) {
+        infoPanelBackBtn.addEventListener('click', function() {
+            infoPanel.classList.remove('show');
+        });
     }
 </script>
 <?php include '../includes/universal_footer.php'; ?>
