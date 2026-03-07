@@ -39,6 +39,7 @@ $config = [
             ['url' => $base . 'profile/index.php', 'icon' => 'bi-person-circle', 'label' => 'My Profile'],
             ['url' => $base . 'da/users.php', 'icon' => 'bi-people', 'label' => 'Users Management'],
             ['url' => $base . 'da/listings.php', 'icon' => 'bi-card-list', 'label' => 'Listings Overview'],
+            ['url' => $base . 'da/reports.php', 'icon' => 'bi-file-earmark-bar-graph', 'label' => 'System Reports'],
             ['url' => $base . 'da/message.php', 'icon' => 'bi-chat-dots', 'label' => 'Messages'],
             ['url' => $base . 'da/produce.php', 'icon' => 'bi-egg-fried', 'label' => 'Produce Master List'],
             ['url' => $base . 'da/announcements.php', 'icon' => 'bi-megaphone', 'label' => 'Announcements'],
