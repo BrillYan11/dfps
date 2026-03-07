@@ -226,7 +226,7 @@ include '../includes/universal_header.php';
                 <div class="col-12 col-sm-6 col-md-4">
                   <div class="card product-box h-100 border-0 shadow-sm">
                     <?php
-                      $image_src = !empty($post['image_path']) ? '../' . htmlspecialchars($post['image_path']) : 'https://via.placeholder.com/300x200.png?text=No+Image';
+                      $image_src = !empty($post['image_path']) ? '../' . htmlspecialchars($post['image_path']) : '../pic/no-image.svg';
                     ?>
                     <div class="ratio ratio-4x3">
                         <img src="<?php echo $image_src; ?>" class="card-img-top object-fit-cover" alt="<?php echo htmlspecialchars($post['title']); ?>">
@@ -318,7 +318,7 @@ include '../includes/universal_header.php';
 
             let html = '';
             posts.forEach(post => {
-                const imageSrc = post.image_path ? '../' + post.image_path : 'https://via.placeholder.com/300x200.png?text=No+Image';
+                const imageSrc = post.image_path ? '../' + post.image_path : '../pic/no-image.svg';
                 const price = parseFloat(post.price).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
                 
                 html += `

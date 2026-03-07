@@ -150,7 +150,7 @@ include '../includes/universal_header.php';
                     </button>
                 </div>
             <?php else: ?>
-                <img src="https://via.placeholder.com/800x500.png?text=No+Image+Available" class="img-fluid rounded" alt="No Image">
+                <img src="../pic/no-image.svg" class="img-fluid rounded border" alt="No Image">
             <?php endif; ?>
         </div>
 

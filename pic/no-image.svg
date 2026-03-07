@@ -1,0 +1,11 @@
+<svg width="800" height="600" xmlns="http://www.w3.org/2000/svg">
+  <rect width="100%" height="100%" fill="#f8f9fa"/>
+  <rect width="100%" height="100%" fill="none" stroke="#dee2e6" stroke-width="2"/>
+  <g transform="translate(350, 220)">
+    <path d="M10 0 L90 0 L100 10 L100 90 L90 100 L10 100 L0 90 L0 10 L10 0" fill="#e9ecef"/>
+    <circle cx="50" cy="40" r="15" fill="#adb5bd"/>
+    <path d="M10 85 L30 55 L50 75 L70 45 L90 85 Z" fill="#ced4da"/>
+  </g>
+  <text x="50%" y="65%" font-family="Arial, sans-serif" font-size="24" fill="#6c757d" text-anchor="middle">No Image Available</text>
+  <text x="50%" y="72%" font-family="Arial, sans-serif" font-size="16" fill="#adb5bd" text-anchor="middle">DFPS Marketplace</text>
+</svg>

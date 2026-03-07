@@ -138,13 +138,27 @@ include '../includes/universal_header.php';
                     </thead>
                     <tbody>
                         <?php if (empty($listings)): ?>
-                            <tr><td colspan="7" class="text-center py-5 text-muted">No product listings found.</td></tr>
+                            <tr><td colspan="8" class="text-center py-5 text-muted">No product listings found.</td></tr>
                         <?php else: ?>
-                            <?php foreach ($listings as $listing): ?>
+                            <?php foreach ($listings as $listing): 
+                                $img_q = $conn->prepare("SELECT file_path FROM post_images WHERE post_id = ? ORDER BY id ASC LIMIT 1");
+                                $img_q->bind_param("i", $listing['id']);
+                                $img_q->execute();
+                                $img_res = $img_q->get_result()->fetch_assoc();
+                                $thumb = $img_res ? '../' . $img_res['file_path'] : '../pic/no-image.svg';
+                                $img_q->close();
+                            ?>
                                 <tr>
                                     <td class="ps-4">
-                                        <div class="fw-bold text-dark"><?php echo htmlspecialchars($listing['title']); ?></div>
-                                        <div class="small text-muted text-truncate" style="max-width: 200px;"><?php echo htmlspecialchars($listing['description']); ?></div>
+                                        <div class="d-flex align-items-center gap-3">
+                                            <div class="rounded-3 overflow-hidden border bg-light" style="width: 60px; height: 45px;">
+                                                <img src="<?php echo $thumb; ?>" class="w-100 h-100 object-fit-cover">
+                                            </div>
+                                            <div>
+                                                <div class="fw-bold text-dark"><?php echo htmlspecialchars($listing['title']); ?></div>
+                                                <div class="small text-muted text-truncate" style="max-width: 200px;"><?php echo htmlspecialchars($listing['description']); ?></div>
+                                            </div>
+                                        </div>
                                     </td>
                                     <td><span class="badge bg-light text-dark border"><?php echo htmlspecialchars($listing['produce_name']); ?></span></td>
                                     <td>

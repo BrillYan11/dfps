@@ -46,13 +46,19 @@ switch ($report_type) {
 
     case 'price_analysis':
         $report_title = "Market Price vs SRP Analysis";
-        $data = $conn->query("
+        // We use the date clause on the posts table in the LEFT JOIN
+        $p_date_clause = str_replace('AND created_at', 'AND p.created_at', $date_clause);
+        $query = "
             SELECT pr.name, pr.srp, AVG(p.price) as avg_market_price, MIN(p.price) as min_price, MAX(p.price) as max_price, COUNT(p.id) as listing_count
             FROM produce pr
-            LEFT JOIN posts p ON pr.id = p.produce_id AND p.status = 'ACTIVE'
+            LEFT JOIN posts p ON pr.id = p.produce_id AND p.status = 'ACTIVE' $p_date_clause
             GROUP BY pr.id, pr.name, pr.srp
             ORDER BY pr.name
-        ")->fetch_all(MYSQLI_ASSOC);
+        ";
+        $result = $conn->query($query);
+        if ($result) {
+            $data = $result->fetch_all(MYSQLI_ASSOC);
+        }
         break;
 
     default:
@@ -257,17 +263,25 @@ include '../includes/universal_header.php';
                     </thead>
                     <tbody>
                         <?php foreach($data as $pa): 
-                            $variance = $pa['avg_market_price'] - $pa['srp'];
-                            $variance_class = $variance > 0 ? 'text-danger' : 'text-success';
+                            $has_data = !is_null($pa['avg_market_price']);
+                            $variance = $has_data ? ($pa['avg_market_price'] - $pa['srp']) : 0;
+                            $variance_class = $variance > 0 ? 'text-danger' : ($variance < 0 ? 'text-success' : 'text-muted');
                         ?>
                             <tr>
                                 <td class="fw-bold"><?php echo $pa['name']; ?></td>
                                 <td class="text-center">₱<?php echo number_format($pa['srp'], 2); ?></td>
-                                <td class="text-center fw-bold">₱<?php echo number_format($pa['avg_market_price'], 2); ?></td>
-                                <td class="text-center small">₱<?php echo number_format($pa['min_price'], 2); ?> - ₱<?php echo number_format($pa['max_price'], 2); ?></td>
+                                <td class="text-center fw-bold">
+                                    <?php echo $has_data ? '₱' . number_format($pa['avg_market_price'], 2) : '<span class="text-muted small">No Active Listings</span>'; ?>
+                                </td>
+                                <td class="text-center small">
+                                    <?php echo $has_data ? '₱' . number_format($pa['min_price'], 2) . ' - ₱' . number_format($pa['max_price'], 2) : '-'; ?>
+                                </td>
                                 <td class="text-center"><?php echo $pa['listing_count']; ?></td>
                                 <td class="text-center fw-bold <?php echo $variance_class; ?>">
-                                    <?php echo ($variance > 0 ? '+' : '') . number_format($variance, 2); ?>
+                                    <?php 
+                                        if (!$has_data) echo '-';
+                                        else echo ($variance > 0 ? '+' : '') . number_format($variance, 2); 
+                                    ?>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
