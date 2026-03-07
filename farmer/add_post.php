@@ -14,10 +14,10 @@ $success_message = '';
 
 // Fetch produce options for the dropdown
 $produce_options = '';
-$produce_result = $conn->query("SELECT id, name, unit FROM produce WHERE is_active = 1 ORDER BY name ASC");
+$produce_result = $conn->query("SELECT id, name, unit, srp FROM produce WHERE is_active = 1 ORDER BY name ASC");
 if ($produce_result && $produce_result->num_rows > 0) {
     while ($row = $produce_result->fetch_assoc()) {
-        $produce_options .= '<option value="' . htmlspecialchars($row['id']) . '" data-unit="' . htmlspecialchars($row['unit']) . '">' . htmlspecialchars($row['name']) . '</option>';
+        $produce_options .= '<option value="' . htmlspecialchars($row['id']) . '" data-unit="' . htmlspecialchars($row['unit']) . '" data-srp="' . htmlspecialchars($row['srp']) . '">' . htmlspecialchars($row['name']) . '</option>';
     }
 }
 
@@ -174,6 +174,7 @@ include '../includes/universal_header.php';
                   <span class="input-group-text">₱</span>
                   <input type="number" name="price" step="0.01" class="form-control" required>
                 </div>
+                <small id="srp-display" class="form-text text-muted d-block mt-1"></small>
               </div>
               <div class="col-md-4">
                 <label class="form-label">Quantity</label>
@@ -205,12 +206,25 @@ include '../includes/universal_header.php';
 </div>
 
 <script>
-// Script to auto-populate the 'unit' based on produce selection
+// Script to auto-populate the 'unit' and 'SRP' based on produce selection
 document.getElementById('produce-select').addEventListener('change', function() {
     var selectedOption = this.options[this.selectedIndex];
+    
+    // Auto-populate unit
     var unit = selectedOption.getAttribute('data-unit');
     if (unit) {
         document.getElementById('unit-input').value = unit;
+    }
+
+    // Show SRP
+    var srp = selectedOption.getAttribute('data-srp');
+    var srpDisplay = document.getElementById('srp-display');
+    if (srp && srp !== "null") {
+        srpDisplay.innerHTML = '<i class="bi bi-info-circle me-1"></i>SRP: ₱' + parseFloat(srp).toLocaleString() + ' / ' + (unit || 'unit');
+        srpDisplay.classList.add('text-primary');
+        srpDisplay.classList.remove('text-muted');
+    } else {
+        srpDisplay.innerHTML = '';
     }
 });
 </script>
