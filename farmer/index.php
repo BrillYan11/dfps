@@ -215,6 +215,8 @@ include '../includes/universal_header.php';
 
         let debounceTimer;
 
+        let currentPage = 1;
+
         function updateFilterBadge() {
             const hasFilters = filterProduce.value || filterArea.value || filterMinPrice.value || filterMaxPrice.value;
             if (hasFilters) {
@@ -224,7 +226,8 @@ include '../includes/universal_header.php';
             }
         }
 
-        function fetchPosts() {
+        function fetchPosts(page = 1) {
+            currentPage = page;
             updateFilterBadge();
             const search = liveSearch.value;
             const produceId = filterProduce.value;
@@ -237,19 +240,23 @@ include '../includes/universal_header.php';
                 produce_id: produceId,
                 area_id: areaId,
                 min_price: minPrice,
-                max_price: maxPrice
+                max_price: maxPrice,
+                page: page
             });
 
-            fetch(`get_posts.php?${params.toString()}`)
+            fetch(`../buyer/get_posts.php?${params.toString()}`)
                 .then(response => response.json())
-                .then(posts => {
-                    updateGrid(posts);
+                .then(data => {
+                    updateGrid(data);
                 })
                 .catch(error => console.error('Error fetching posts:', error));
         }
 
-        function updateGrid(posts) {
-            resultsCount.innerText = `Showing ${posts.length} listings.`;
+        function updateGrid(data) {
+            const posts = data.posts;
+            const pagination = data.pagination;
+
+            resultsCount.innerText = `Showing ${posts.length} of ${pagination.total_rows} listings.`;
             
             if (posts.length === 0) {
                 productGrid.innerHTML = `
@@ -289,8 +296,37 @@ include '../includes/universal_header.php';
                     </div>
                 `;
             });
+
+            // Add Pagination Controls
+            if (pagination.total_pages > 1) {
+                let paginationHtml = '<div class="col-12 mt-4"><nav aria-label="Page navigation"><ul class="pagination pagination-sm justify-content-center mb-0">';
+                
+                // Previous
+                paginationHtml += `<li class="page-item ${pagination.current_page <= 1 ? 'disabled' : ''}">
+                    <a class="page-link rounded-pill px-3 me-2" href="#" onclick="event.preventDefault(); fetchPosts(${pagination.current_page - 1})">Previous</a>
+                </li>`;
+
+                // Pages
+                for (let i = 1; i <= pagination.total_pages; i++) {
+                    paginationHtml += `<li class="page-item ${pagination.current_page == i ? 'active' : ''}">
+                        <a class="page-link rounded-circle mx-1" href="#" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;" onclick="event.preventDefault(); fetchPosts(${i})">${i}</a>
+                    </li>`;
+                }
+
+                // Next
+                paginationHtml += `<li class="page-item ${pagination.current_page >= pagination.total_pages ? 'disabled' : ''}">
+                    <a class="page-link rounded-pill px-3 ms-2" href="#" onclick="event.preventDefault(); fetchPosts(${pagination.current_page + 1})">Next</a>
+                </li>`;
+
+                paginationHtml += '</ul></nav></div>';
+                html += paginationHtml;
+            }
+
             productGrid.innerHTML = html;
         }
+
+        // Global export for onclick handlers
+        window.fetchPosts = fetchPosts;
 
         liveSearch.addEventListener('input', () => {
             clearTimeout(debounceTimer);

@@ -9,6 +9,10 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'DA') {
 
 $status_filter = filter_input(INPUT_GET, 'status', FILTER_UNSAFE_RAW);
 $farmer_id = filter_input(INPUT_GET, 'farmer_id', FILTER_VALIDATE_INT);
+$page = filter_input(INPUT_GET, 'page', FILTER_VALIDATE_INT) ?: 1;
+$limit = 10;
+$offset = ($page - 1) * $limit;
+
 $listings = [];
 
 // 1. Analytics for header
@@ -16,7 +20,14 @@ $active_listings = $conn->query("SELECT COUNT(*) FROM posts WHERE status = 'ACTI
 $sold_listings = $conn->query("SELECT COUNT(*) FROM posts WHERE status = 'SOLD'")->fetch_row()[0];
 $flagged_listings = $conn->query("SELECT COUNT(*) FROM posts WHERE status = 'FLAGGED'")->fetch_row()[0];
 
-// 2. Main query
+// 2. Count total for pagination
+$count_query = "SELECT COUNT(*) FROM posts WHERE 1=1";
+if ($status_filter) $count_query .= " AND status = '$status_filter'";
+if ($farmer_id) $count_query .= " AND farmer_id = $farmer_id";
+$total_rows = $conn->query($count_query)->fetch_row()[0];
+$total_pages = ceil($total_rows / $limit);
+
+// 3. Main query
 $query = "
     SELECT p.*, pr.name as produce_name, u.first_name, u.last_name, a.name as area_name 
     FROM posts p 
@@ -40,11 +51,13 @@ if ($farmer_id) {
     $types .= "i";
 }
 
-$query .= " ORDER BY p.created_at DESC";
+$query .= " ORDER BY p.created_at DESC LIMIT ? OFFSET ?";
+$params[] = $limit;
+$params[] = $offset;
+$types .= "ii";
+
 $stmt = $conn->prepare($query);
-if (!empty($params)) {
-    $stmt->bind_param($types, ...$params);
-}
+$stmt->bind_param($types, ...$params);
 $stmt->execute();
 $listings = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 $stmt->close();
@@ -95,7 +108,7 @@ include '../includes/universal_header.php';
         </div>
     </div>
 
-    <div class="card border-0 shadow-sm rounded-4">
+    <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
         <div class="card-header bg-white py-3 border-0 d-flex justify-content-between align-items-center">
             <h5 class="mb-0 fw-bold">
                 <?php echo $status_filter ? ucfirst(strtolower($status_filter)) . ' Listings' : 'All Marketplace Listings'; ?>
@@ -104,22 +117,11 @@ include '../includes/universal_header.php';
                 <?php endif; ?>
             </h5>
             
-            <?php
-                $isAll = empty($status_filter);
-                $isActive = ($status_filter === 'ACTIVE');
-                $isSold = ($status_filter === 'SOLD');
-                $isFlagged = ($status_filter === 'FLAGGED');
-
-                $allClass = $isAll ? 'btn-secondary' : 'btn-outline-secondary';
-                $activeClass = $isActive ? 'btn-success' : 'btn-outline-success';
-                $soldClass = $isSold ? 'btn-info text-white' : 'btn-outline-info';
-                $flaggedClass = $isFlagged ? 'btn-danger' : 'btn-outline-danger';
-            ?>
             <div class="d-flex gap-2">
-                <a href="listings.php" class="btn btn-sm <?php echo $allClass; ?> rounded-pill px-3">All</a>
-                <a href="listings.php?status=ACTIVE" class="btn btn-sm <?php echo $activeClass; ?> rounded-pill px-3">Active</a>
-                <a href="listings.php?status=SOLD" class="btn btn-sm <?php echo $soldClass; ?> rounded-pill px-3">Sold</a>
-                <a href="listings.php?status=FLAGGED" class="btn btn-sm <?php echo $flaggedClass; ?> rounded-pill px-3">Flagged</a>
+                <a href="listings.php" class="btn btn-sm <?php echo empty($status_filter) ? 'btn-secondary' : 'btn-outline-secondary'; ?> rounded-pill px-3">All</a>
+                <a href="listings.php?status=ACTIVE" class="btn btn-sm <?php echo ($status_filter === 'ACTIVE') ? 'btn-success' : 'btn-outline-success'; ?> rounded-pill px-3">Active</a>
+                <a href="listings.php?status=SOLD" class="btn btn-sm <?php echo ($status_filter === 'SOLD') ? 'btn-info text-white' : 'btn-outline-info'; ?> rounded-pill px-3">Sold</a>
+                <a href="listings.php?status=FLAGGED" class="btn btn-sm <?php echo ($status_filter === 'FLAGGED') ? 'btn-danger' : 'btn-outline-danger'; ?> rounded-pill px-3">Flagged</a>
             </div>
         </div>
         <div class="card-body p-0">
@@ -188,6 +190,26 @@ include '../includes/universal_header.php';
                 </table>
             </div>
         </div>
+
+        <?php if ($total_pages > 1): ?>
+        <div class="card-footer bg-white py-3 border-0 border-top">
+            <nav aria-label="Page navigation">
+                <ul class="pagination pagination-sm justify-content-center mb-0">
+                    <li class="page-item <?php echo ($page <= 1) ? 'disabled' : ''; ?>">
+                        <a class="page-link rounded-pill px-3 me-2" href="?status=<?php echo $status_filter; ?>&farmer_id=<?php echo $farmer_id; ?>&page=<?php echo $page - 1; ?>">Previous</a>
+                    </li>
+                    <?php for ($i = 1; $i <= $total_pages; $i++): ?>
+                        <li class="page-item <?php echo ($page == $i) ? 'active' : ''; ?>">
+                            <a class="page-link rounded-circle mx-1" href="?status=<?php echo $status_filter; ?>&farmer_id=<?php echo $farmer_id; ?>&page=<?php echo $i; ?>" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;"><?php echo $i; ?></a>
+                        </li>
+                    <?php endfor; ?>
+                    <li class="page-item <?php echo ($page >= $total_pages) ? 'disabled' : ''; ?>">
+                        <a class="page-link rounded-pill px-3 ms-2" href="?status=<?php echo $status_filter; ?>&farmer_id=<?php echo $farmer_id; ?>&page=<?php echo $page + 1; ?>">Next</a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+        <?php endif; ?>
     </div>
 </main>
 
