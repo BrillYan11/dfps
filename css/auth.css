@@ -1,0 +1,163 @@
+/* Hero Section Styles for index.php */
+.hero-section {
+    background: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)), url('../pic/image/farmbackground.jpg');
+    background-size: cover;
+    background-position: center;
+    min-height: 80vh;
+    display: flex;
+    align-items: center;
+    color: white;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+}
+
+.hero-logo {
+    max-width: 180px;
+    width: 180px;
+    height: 180px;
+    background-color: #fff;
+    border-radius: 50%;
+    padding: 15px;
+    object-fit: contain;
+    margin-bottom: 2rem;
+    box-shadow: 0 0 20px rgba(255,255,255,0.2);
+}
+
+.feature-card {
+    transition: transform 0.3s ease;
+    border: none;
+    border-radius: 15px;
+}
+
+.feature-card:hover {
+    transform: translateY(-10px);
+}
+
+.btn-hero-primary {
+    background-color: #28a745;
+    border: none;
+    padding: 12px 30px;
+    font-weight: 600;
+    border-radius: 30px;
+    transition: all 0.3s ease;
+}
+
+.btn-hero-primary:hover {
+    background-color: #218838;
+    box-shadow: 0 5px 15px rgba(40, 167, 69, 0.4);
+}
+
+.btn-hero-outline {
+    background-color: transparent;
+    border: 2px solid white;
+    color: white;
+    padding: 12px 30px;
+    font-weight: 600;
+    border-radius: 30px;
+    transition: all 0.3s ease;
+}
+
+.btn-hero-outline:hover {
+    background-color: white;
+    color: #28a745;
+}
+
+/* Login Page Styles */
+.login-page {
+    background: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)), url('../pic/image/farmbackground.jpg');
+    background-size: cover;
+    background-position: center;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.login-card {
+    background: rgba(255, 255, 255, 0.95);
+    border: none;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    width: 100%;
+    max-width: 400px;
+}
+
+.login-logo {
+    max-width: 120px;
+    width: 120px;
+    height: 120px;
+    background-color: #fff;
+    border-radius: 50%;
+    padding: 10px;
+    display: block;
+    margin: 0 auto 1.5rem;
+    object-fit: contain;
+}
+
+.login-btn {
+    background-color: #28a745;
+    border: none;
+    padding: 10px;
+    font-weight: 600;
+    border-radius: 8px;
+}
+
+.login-btn:hover {
+    background-color: #218838;
+}
+
+/* Register Page Styles */
+.register-page {
+    background: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)), url('../pic/image/farmbackground.jpg');
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+}
+
+.register-card {
+    background: rgba(255, 255, 255, 0.95);
+    border: none;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    width: 100%;
+    max-width: 800px;
+}
+
+.register-logo {
+    max-width: 100px;
+    width: 100px;
+    height: 100px;
+    background-color: #fff;
+    border-radius: 50%;
+    padding: 10px;
+    display: block;
+    margin: 0 auto 1rem;
+    object-fit: contain;
+}
+
+.register-btn {
+    background-color: #28a745;
+    border: none;
+    padding: 12px;
+    font-weight: 600;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.register-btn:hover {
+    background-color: #218838;
+    transform: translateY(-2px);
+}
+
+.form-section-title {
+    color: #28a745;
+    border-bottom: 2px solid #e9ecef;
+    padding-bottom: 8px;
+    margin-bottom: 20px;
+    font-weight: 700;
+}

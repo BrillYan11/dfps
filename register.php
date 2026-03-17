@@ -16,10 +16,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $confirm_password = $_POST['confirm_password'] ?? '';
     $role = filter_input(INPUT_POST, 'role', FILTER_UNSAFE_RAW);
     $city_name = filter_input(INPUT_POST, 'city_name', FILTER_UNSAFE_RAW);
+    $terms_agreed = isset($_POST['terms_agreed']);
 
     // Basic validation
     if (!$first_name || !$last_name || !$username || !$address || !$email || !$phone || !$password || !$role || !$city_name) {
         $error_message = "Please fill in all required fields correctly.";
+    } elseif (!$terms_agreed) {
+        $error_message = "You must agree to the Terms and Conditions to register.";
     } elseif ($password !== $confirm_password) {
         $error_message = "Passwords do not match.";
     } else {
@@ -72,106 +75,175 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 include 'includes/universal_header.php';
 ?>
 
-<div class="container mt-5">
-    <h3 class="mb-4">Registration Form</h3>
-
-    <?php if ($success_message): ?>
-        <div class="alert alert-success"><?php echo $success_message; ?></div>
-    <?php endif; ?>
-    <?php if ($error_message): ?>
-        <div class="alert alert-danger"><?php echo $error_message; ?></div>
-    <?php endif; ?>
-
-    <form method="POST" action="register.php">
-        <h5 class="mb-3">Personal Information</h5>
-
-        <!-- Last Name & First Name -->
-        <div class="row mb-3">
-            <div class="col-md-6">
-                <label class="form-label">Last Name</label>
-                <input type="text" name="last_name" class="form-control" required>
-            </div>
-            <div class="col-md-6">
-                <label class="form-label">First Name</label>
-                <input type="text" name="first_name" class="form-control" required>
-            </div>
+<div class="register-page">
+    <div class="register-card p-4 p-md-5">
+        <div class="text-center mb-4">
+            <img src="pic/image/Da_logo.svg" alt="DA Logo" class="register-logo">
+            <h2 class="fw-bold">Create Your Account</h2>
+            <p class="text-muted">Join the DFPS community today</p>
         </div>
 
-        <!-- Address -->
-        <div class="mb-3">
-            <label class="form-label">Detailed Address (Street, Brgy)</label>
-            <input type="text" name="address" class="form-control" placeholder="e.g. 123 Rizal St, Brgy. Poblacion" required>
+        <?php if ($success_message): ?>
+            <div class="alert alert-success" id="successAlert"><?php echo $success_message; ?></div>
+        <?php endif; ?>
+        <?php if ($error_message): ?>
+            <div class="alert alert-danger" id="errorAlert"><?php echo $error_message; ?></div>
+        <?php endif; ?>
+
+        <?php if ($success_message || $error_message): ?>
+            <script>
+                setTimeout(function() {
+                    var successAlert = document.getElementById('successAlert');
+                    var errorAlert = document.getElementById('errorAlert');
+                    var alert = successAlert || errorAlert;
+                    if (alert) {
+                        alert.style.transition = "opacity 0.5s ease";
+                        alert.style.opacity = "0";
+                        setTimeout(function() { alert.style.display = 'none'; }, 500);
+                    }
+                }, 3000);
+            </script>
+        <?php endif; ?>
+
+        <form method="POST" action="register.php">
+            <h5 class="form-section-title">Personal Information</h5>
+
+            <!-- Last Name & First Name -->
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label class="form-label">Last Name</label>
+                    <input type="text" name="last_name" class="form-control" placeholder="Enter last name" required>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">First Name</label>
+                    <input type="text" name="first_name" class="form-control" placeholder="Enter first name" required>
+                </div>
+            </div>
+
+            <!-- Address -->
+            <div class="mb-3">
+                <label class="form-label">Detailed Address (Street, Brgy)</label>
+                <input type="text" name="address" class="form-control" placeholder="e.g. 123 Rizal St, Brgy. Poblacion" required>
+            </div>
+
+            <!-- Email & Cellphone -->
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label class="form-label">Email</label>
+                    <input type="email" name="email" class="form-control" placeholder="example@email.com" required>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Cellphone Number</label>
+                    <input type="text" name="phone" class="form-control" placeholder="09xxxxxxxxx" required>
+                </div>
+            </div>
+
+            <h5 class="form-section-title mt-4">Location Information</h5>
+            <!-- Dynamic Location Selects -->
+            <div class="row mb-3">
+                <div class="col-md-4">
+                    <label class="form-label">Region</label>
+                    <select id="region" class="form-select" required>
+                        <option value="" selected disabled>Select region</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Province</label>
+                    <select id="province" class="form-select" disabled required>
+                        <option value="" selected disabled>Select province</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">City / Municipality</label>
+                    <select id="city" class="form-select" disabled required>
+                        <option value="" selected disabled>Select city/municipality</option>
+                    </select>
+                    <!-- This hidden input will hold the actual name for the database -->
+                    <input type="hidden" name="city_name" id="city_name" required>
+                </div>
+            </div>
+
+            <h5 class="form-section-title mt-4">Account Information</h5>
+
+            <!-- Username & Role -->
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label class="form-label">Username</label>
+                    <input type="text" name="username" class="form-control" placeholder="Choose a username" required>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Register as</label>
+                    <select name="role" class="form-select" required>
+                        <option value="" selected disabled>Select user type</option>
+                        <option value="BUYER">Buyer (General User)</option>
+                        <option value="FARMER">Farmer</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Password & Confirm -->
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <label class="form-label">Password</label>
+                    <input type="password" name="password" class="form-control" placeholder="Create password" required>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Confirm Password</label>
+                    <input type="password" name="confirm_password" class="form-control" placeholder="Repeat password" required>
+                </div>
+            </div>
+
+            <!-- Terms and Conditions -->
+            <div class="mb-4 form-check">
+                <input type="checkbox" name="terms_agreed" id="terms_agreed" class="form-check-input" required <?php echo isset($_POST['terms_agreed']) ? 'checked' : ''; ?>>
+                <label for="terms_agreed" class="form-check-label">
+                    I agree to the <a href="#" data-bs-toggle="modal" data-bs-target="#termsModal" class="text-success fw-bold">Terms and Conditions</a> of DFPS.
+                </label>
+            </div>
+
+            <div class="d-grid gap-2 mb-4">
+                <button type="submit" class="btn btn-primary register-btn">Complete Registration</button>
+            </div>
+
+            <div class="text-center">
+                <p class="mb-0 text-muted">Already have an account? <a href="login.php" class="text-success fw-bold text-decoration-none">Login here</a></p>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Terms and Conditions Modal -->
+<div class="modal fade" id="termsModal" tabindex="-1" aria-labelledby="termsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="termsModalLabel">Terms and Conditions</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <h6>1. Introduction</h6>
+                <p>Welcome to the Department of Agriculture Direct Farmer-to-Buyer Platform (DFPS). By accessing or using this platform, you agree to comply with and be bound by the following terms and conditions.</p>
+                
+                <h6>2. User Responsibility</h6>
+                <p>All users (Farmers and Buyers) are responsible for the accuracy of the information provided in their profiles and listings. Misrepresentation of products or identity may lead to account suspension.</p>
+                
+                <h6>3. Transactions</h6>
+                <p>DFPS serves as a platform to connect farmers and buyers. While we facilitate connections, the actual transactions and agreements are between the users. Users are encouraged to verify information before proceeding with payments or deliveries.</p>
+                
+                <h6>4. Prohibited Activities</h6>
+                <p>Users are prohibited from using the platform for any fraudulent or illegal activities. This includes, but is not limited to, the sale of illegal produce, harassment of other users, or attempting to compromise the security of the platform.</p>
+                
+                <h6>5. Data Privacy</h6>
+                <p>Your privacy is important to us. Information collected during registration is used solely for the purpose of facilitating the platform's services. We do not sell your data to third parties.</p>
+                
+                <h6>6. Changes to Terms</h6>
+                <p>The Department of Agriculture reserves the right to modify these terms at any time. Users will be notified of any significant changes.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
         </div>
-
-        <!-- Email & Cellphone -->
-        <div class="row mb-3">
-            <div class="col-md-6">
-                <label class="form-label">Email</label>
-                <input type="email" name="email" class="form-control" required>
-            </div>
-            <div class="col-md-6">
-                <label class="form-label">Cellphone Number</label>
-                <input type="text" name="phone" class="form-control" required>
-            </div>
-        </div>
-
-        <h5 class="mt-4 mb-3">Location Information</h5>
-        <!-- Dynamic Location Selects -->
-        <div class="row mb-3">
-            <div class="col-md-4">
-                <label class="form-label">Region</label>
-                <select id="region" class="form-select" required>
-                    <option value="" selected disabled>Select region</option>
-                </select>
-            </div>
-            <div class="col-md-4">
-                <label class="form-label">Province</label>
-                <select id="province" class="form-select" disabled required>
-                    <option value="" selected disabled>Select province</option>
-                </select>
-            </div>
-            <div class="col-md-4">
-                <label class="form-label">City / Municipality</label>
-                <select id="city" class="form-select" disabled required>
-                    <option value="" selected disabled>Select city/municipality</option>
-                </select>
-                <!-- This hidden input will hold the actual name for the database -->
-                <input type="hidden" name="city_name" id="city_name" required>
-            </div>
-        </div>
-
-        <h5 class="mt-4 mb-3">Account Information</h5>
-
-        <!-- Username & Role -->
-        <div class="row mb-3">
-            <div class="col-md-6">
-                <label class="form-label">Username</label>
-                <input type="text" name="username" class="form-control" required>
-            </div>
-            <div class="col-md-6">
-                <label class="form-label">Register as</label>
-                <select name="role" class="form-select" required>
-                    <option value="" selected disabled>Select user type</option>
-                    <option value="BUYER">Buyer (General User)</option>
-                    <option value="FARMER">Farmer</option>
-                </select>
-            </div>
-        </div>
-
-        <!-- Password & Confirm -->
-        <div class="row mb-4">
-            <div class="col-md-6">
-                <label class="form-label">Password</label>
-                <input type="password" name="password" class="form-control" required>
-            </div>
-            <div class="col-md-6">
-                <label class="form-label">Confirm Password</label>
-                <input type="password" name="confirm_password" class="form-control" required>
-            </div>
-        </div>
-
-        <button type="submit" class="btn btn-primary">Register</button>
-    </form>
+    </div>
 </div>
 
 <script src="bootstrap/js/location.js"></script>

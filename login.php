@@ -41,10 +41,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     }
                     exit();
                 } else {
-                    $error_message = "Invalid password.";
+                    $error_message = "Invalid Credentials.";
                 }
             } else {
-                $error_message = "No account found with that email address.";
+                $error_message = "No account found with Credentials.";
             }
             $stmt->close();
         } else {
@@ -57,38 +57,48 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 include 'includes/universal_header.php';
 ?>
 
-<div class="container mt-5">
-    <div class="row justify-content-center">
-        <div class="col-md-6 col-lg-4">
-            <div class="card">
-                <div class="card-header text-center">
-                    <h2>Login</h2>
+<div class="login-page">
+    <div class="login-card p-4">
+        <div class="text-center">
+            <img src="pic/image/Da_logo.svg" alt="DA Logo" class="login-logo">
+            <h3 class="fw-bold mb-4">Login to DFPS</h3>
+        </div>
+        
+        <div class="card-body p-0">
+            <?php if ($error_message): ?>
+                <div class="alert alert-danger" id="loginAlert"><?php echo $error_message; ?></div>
+                <script>
+                    setTimeout(function() {
+                        var alert = document.getElementById('loginAlert');
+                        if (alert) {
+                            alert.style.transition = "opacity 0.5s ease";
+                            alert.style.opacity = "0";
+                            setTimeout(function() { alert.style.display = 'none'; }, 500);
+                        }
+                    }, 3000);
+                </script>
+            <?php endif; ?>
+            <form action="login.php" method="POST">
+                <div class="mb-3">
+                    <label for="email" class="form-label">Email address</label>
+                    <input type="email" class="form-control" id="email" name="email" placeholder="Enter your email" required>
                 </div>
-                <div class="card-body">
-                    <?php if ($error_message): ?>
-                        <div class="alert alert-danger"><?php echo $error_message; ?></div>
-                    <?php endif; ?>
-                    <form action="login.php" method="POST">
-                        <div class="mb-3">
-                            <label for="email" class="form-label">Email address</label>
-                            <input type="email" class="form-control" id="email" name="email" required>
-                        </div>
-                        <div class="mb-3">
-                            <label for="password" class="form-label">Password</label>
-                            <input type="password" class="form-control" id="password" name="password" required>
-                        </div>
-                        <div class="d-grid gap-2">
-                            <button type="submit" class="btn btn-primary">Login</button>
-                        </div>
-                        <div class="mt-3 text-center">
-                            <a href="#">Forgot Password?</a>
-                        </div>
-                        <div class="mt-2 text-center">
-                            <a href="register.php">Don't have an account? Register here.</a>
-                        </div>
-                    </form>
+                <div class="mb-4">
+                    <label for="password" class="form-label">Password</label>
+                    <input type="password" class="form-control" id="password" name="password" placeholder="Enter your password" required>
                 </div>
-            </div>
+                <div class="d-grid gap-2">
+                    <button type="submit" class="btn btn-primary login-btn">Login</button>
+                </div>
+                <div class="mt-4 text-center">
+                    <a href="forgot_password.php" class="text-decoration-none text-muted small">Forgot Password?</a>
+                </div>
+                <hr>
+                <div class="text-center">
+                    <p class="mb-0 small text-muted">Don't have an account?</p>
+                    <a href="register.php" class="text-decoration-none fw-bold text-success">Register here</a>
+                </div>
+            </form>
         </div>
     </div>
 </div>

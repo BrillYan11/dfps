@@ -5,7 +5,9 @@ include 'includes/db.php';
 $columns = [
     'profile_picture' => "ALTER TABLE users ADD COLUMN profile_picture VARCHAR(255) DEFAULT NULL",
     'bio' => "ALTER TABLE users ADD COLUMN bio TEXT DEFAULT NULL",
-    'additional_details' => "ALTER TABLE users ADD COLUMN additional_details TEXT DEFAULT NULL"
+    'additional_details' => "ALTER TABLE users ADD COLUMN additional_details TEXT DEFAULT NULL",
+    'reset_token' => "ALTER TABLE users ADD COLUMN reset_token VARCHAR(64) DEFAULT NULL",
+    'token_expires' => "ALTER TABLE users ADD COLUMN token_expires DATETIME DEFAULT NULL"
 ];
 
 foreach ($columns as $name => $sql) {

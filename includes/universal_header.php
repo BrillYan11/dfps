@@ -106,6 +106,10 @@ if (isset($_SESSION['user_id']) && isset($conn)) {
   <link rel="stylesheet" href="<?php echo $base; ?>css/header.css?v=<?php echo time(); ?>">
   <link rel="stylesheet" href="<?php echo $base; ?>css/message.css?v=<?php echo time(); ?>">
   <link rel="stylesheet" href="<?php echo $base; ?>css/notification.css?v=<?php echo time(); ?>">
+  <link rel="stylesheet" href="<?php echo $base; ?>css/auth.css?v=<?php echo time(); ?>">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="<?php echo $base; ?>pic/image/Da_logo.svg">
 
   <!-- Bootstrap Icons -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
@@ -159,7 +163,14 @@ if (isset($_SESSION['user_id']) && isset($conn)) {
     <button type="button" class="hamburger-btn" id="menuBtn" aria-label="Open menu">
       <i class="bi bi-list"></i>
     </button>
-    <a href="<?php echo $base; ?>index.php" class="app-title-link">
+    <?php 
+      $brand_url = $base . 'index.php';
+      if ($role === 'FARMER') $brand_url = $base . 'farmer/index.php';
+      elseif ($role === 'BUYER') $brand_url = $base . 'buyer/index.php';
+      elseif ($role === 'DA') $brand_url = $base . 'da/index.php';
+    ?>
+    <a href="<?php echo $brand_url; ?>" class="app-title-link">
+      <img src="<?php echo $base; ?>pic/image/Da_logo.svg" alt="Logo" class="header-logo">
       <span class="app-title"><?php echo $current_config['brand']; ?></span>
     </a>
   </div>

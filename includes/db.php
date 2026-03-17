@@ -35,4 +35,16 @@ $res = $conn->query("SHOW COLUMNS FROM produce LIKE 'srp'");
 if ($res->num_rows == 0) {
     $conn->query("ALTER TABLE produce ADD COLUMN srp DECIMAL(10,2) DEFAULT 0.00");
 }
+
+// Check for reset_token in users
+$res = $conn->query("SHOW COLUMNS FROM users LIKE 'reset_token'");
+if ($res->num_rows == 0) {
+    $conn->query("ALTER TABLE users ADD COLUMN reset_token VARCHAR(64) DEFAULT NULL");
+}
+
+// Check for token_expires in users
+$res = $conn->query("SHOW COLUMNS FROM users LIKE 'token_expires'");
+if ($res->num_rows == 0) {
+    $conn->query("ALTER TABLE users ADD COLUMN token_expires DATETIME DEFAULT NULL");
+}
 ?>
