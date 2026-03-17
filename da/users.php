@@ -9,6 +9,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'DA') {
 }
 
 $role_filter = filter_input(INPUT_GET, 'role', FILTER_UNSAFE_RAW);
+$search = filter_input(INPUT_GET, 'search', FILTER_UNSAFE_RAW);
 $page = filter_input(INPUT_GET, 'page', FILTER_VALIDATE_INT) ?: 1;
 $limit = 10;
 $offset = ($page - 1) * $limit;
@@ -21,6 +22,10 @@ $active_accounts = $conn->query("SELECT COUNT(*) FROM users WHERE is_active = 1"
 // 2. Count total for pagination
 $count_query = "SELECT COUNT(*) FROM users WHERE 1=1";
 if ($role_filter) $count_query .= " AND role = '$role_filter'";
+if ($search) {
+    $search_safe = $conn->real_escape_string($search);
+    $count_query .= " AND (first_name LIKE '%$search_safe%' OR last_name LIKE '%$search_safe%' OR email LIKE '%$search_safe%' OR username LIKE '%$search_safe%')";
+}
 $total_rows = $conn->query($count_query)->fetch_row()[0];
 $total_pages = ceil($total_rows / $limit);
 
@@ -39,6 +44,16 @@ if ($role_filter) {
     $query .= " AND u.role = ?";
     $params[] = $role_filter;
     $types .= "s";
+}
+
+if ($search) {
+    $query .= " AND (u.first_name LIKE ? OR u.last_name LIKE ? OR u.email LIKE ? OR u.username LIKE ?)";
+    $search_param = "%$search%";
+    $params[] = $search_param;
+    $params[] = $search_param;
+    $params[] = $search_param;
+    $params[] = $search_param;
+    $types .= "ssss";
 }
 
 $query .= " ORDER BY u.created_at DESC LIMIT ? OFFSET ?";
@@ -100,12 +115,31 @@ include '../includes/universal_header.php';
 
     <!-- User Management Table -->
     <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
-        <div class="card-header bg-white py-3 border-0 d-flex justify-content-between align-items-center">
+        <div class="card-header bg-white py-3 border-0 d-flex flex-wrap justify-content-between align-items-center gap-3">
             <h5 class="mb-0 fw-bold"><?php echo $role_filter ? ucfirst(strtolower($role_filter)) . 's' : 'All Marketplace Participants'; ?></h5>
+            
+            <!-- Search Form -->
+            <div class="flex-grow-1 mx-md-4" style="max-width: 400px;">
+                <form action="users.php" method="GET" class="input-group input-group-sm">
+                    <?php if ($role_filter): ?>
+                        <input type="hidden" name="role" value="<?php echo htmlspecialchars($role_filter); ?>">
+                    <?php endif; ?>
+                    <input type="text" name="search" class="form-control rounded-start-pill ps-3" 
+                           placeholder="Search by name, email, or username..." 
+                           value="<?php echo htmlspecialchars($search ?? ''); ?>">
+                    <button class="btn btn-primary rounded-end-pill px-3" type="submit">
+                        <i class="bi bi-search"></i>
+                    </button>
+                    <?php if ($search): ?>
+                        <a href="users.php?role=<?php echo htmlspecialchars($role_filter ?? ''); ?>" class="btn btn-outline-secondary border-0 ms-1 small d-flex align-items-center">Clear</a>
+                    <?php endif; ?>
+                </form>
+            </div>
+
             <div class="d-flex gap-2">
-                <a href="users.php" class="btn btn-sm <?php echo empty($role_filter) ? 'btn-secondary' : 'btn-outline-secondary'; ?> rounded-pill px-3">All</a>
-                <a href="users.php?role=FARMER" class="btn btn-sm <?php echo ($role_filter === 'FARMER') ? 'btn-primary' : 'btn-outline-primary'; ?> rounded-pill px-3">Farmers</a>
-                <a href="users.php?role=BUYER" class="btn btn-sm <?php echo ($role_filter === 'BUYER') ? 'btn-success' : 'btn-outline-success'; ?> rounded-pill px-3">Buyers</a>
+                <a href="users.php?search=<?php echo urlencode($search ?? ''); ?>" class="btn btn-sm <?php echo empty($role_filter) ? 'btn-secondary' : 'btn-outline-secondary'; ?> rounded-pill px-3">All</a>
+                <a href="users.php?role=FARMER&search=<?php echo urlencode($search ?? ''); ?>" class="btn btn-sm <?php echo ($role_filter === 'FARMER') ? 'btn-primary' : 'btn-outline-primary'; ?> rounded-pill px-3">Farmers</a>
+                <a href="users.php?role=BUYER&search=<?php echo urlencode($search ?? ''); ?>" class="btn btn-sm <?php echo ($role_filter === 'BUYER') ? 'btn-success' : 'btn-outline-success'; ?> rounded-pill px-3">Buyers</a>
             </div>
         </div>
         <div class="card-body p-0">
