@@ -10,9 +10,14 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'DA') {
 
 $role_filter = filter_input(INPUT_GET, 'role', FILTER_UNSAFE_RAW);
 $search = filter_input(INPUT_GET, 'search', FILTER_UNSAFE_RAW);
+$area_filter = filter_input(INPUT_GET, 'area_id', FILTER_VALIDATE_INT);
+$status_filter = filter_input(INPUT_GET, 'status', FILTER_UNSAFE_RAW);
 $page = filter_input(INPUT_GET, 'page', FILTER_VALIDATE_INT) ?: 1;
 $limit = 10;
 $offset = ($page - 1) * $limit;
+
+// Fetch areas for filter
+$areas_list = $conn->query("SELECT id, name FROM areas ORDER BY name ASC")->fetch_all(MYSQLI_ASSOC);
 
 // 1. Analytics for the header
 $total_farmers = $conn->query("SELECT COUNT(*) FROM users WHERE role = 'FARMER'")->fetch_row()[0];
@@ -22,6 +27,11 @@ $active_accounts = $conn->query("SELECT COUNT(*) FROM users WHERE is_active = 1"
 // 2. Count total for pagination
 $count_query = "SELECT COUNT(*) FROM users WHERE 1=1";
 if ($role_filter) $count_query .= " AND role = '$role_filter'";
+if ($area_filter) $count_query .= " AND area_id = $area_filter";
+if ($status_filter !== null && $status_filter !== '') {
+    $is_active_val = ($status_filter === 'active') ? 1 : 0;
+    $count_query .= " AND is_active = $is_active_val";
+}
 if ($search) {
     $search_safe = $conn->real_escape_string($search);
     $count_query .= " AND (first_name LIKE '%$search_safe%' OR last_name LIKE '%$search_safe%' OR email LIKE '%$search_safe%' OR username LIKE '%$search_safe%')";
@@ -44,6 +54,18 @@ if ($role_filter) {
     $query .= " AND u.role = ?";
     $params[] = $role_filter;
     $types .= "s";
+}
+
+if ($area_filter) {
+    $query .= " AND u.area_id = ?";
+    $params[] = $area_filter;
+    $types .= "i";
+}
+
+if ($status_filter !== null && $status_filter !== '') {
+    $query .= " AND u.is_active = ?";
+    $params[] = ($status_filter === 'active') ? 1 : 0;
+    $types .= "i";
 }
 
 if ($search) {
@@ -118,27 +140,78 @@ include '../includes/universal_header.php';
         <div class="card-header bg-white py-3 border-0 d-flex flex-wrap justify-content-between align-items-center gap-3">
             <h5 class="mb-0 fw-bold"><?php echo $role_filter ? ucfirst(strtolower($role_filter)) . 's' : 'All Marketplace Participants'; ?></h5>
             
-            <!-- Search Form -->
-            <div class="flex-grow-1 mx-md-4" style="max-width: 400px;">
-                <form action="users.php" method="GET">
-                    <?php if ($role_filter): ?>
-                        <input type="hidden" name="role" value="<?php echo htmlspecialchars($role_filter); ?>">
+            <div class="d-flex align-items-center gap-2">
+                <!-- Filter Dropdown -->
+                <div class="dropdown">
+                  <button class="btn btn-light rounded-circle shadow-sm position-relative" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" title="Filters" id="filterDropdownBtn">
+                    <i class="bi bi-filter"></i>
+                    <?php if ($area_filter || $status_filter): ?>
+                        <span id="filterBadge" class="position-absolute top-0 start-100 translate-middle p-1 bg-danger border border-light rounded-circle"></span>
                     <?php endif; ?>
-                    <div class="search-wrapper">
+                  </button>
+                  <div class="dropdown-menu dropdown-menu-end p-3 shadow-lg border-0" style="width: 280px; border-radius: 15px;">
+                    <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
+                      <h6 class="fw-bold mb-0">Advanced Filters</h6>
+                      <a href="users.php?role=<?php echo urlencode($role_filter ?? ''); ?>&search=<?php echo urlencode($search ?? ''); ?>" class="btn btn-sm text-success p-0">Reset</a>
+                    </div>
+                    <form action="users.php" method="GET">
+                      <?php if ($role_filter): ?>
+                          <input type="hidden" name="role" value="<?php echo htmlspecialchars($role_filter); ?>">
+                      <?php endif; ?>
+                      <?php if ($search): ?>
+                          <input type="hidden" name="search" value="<?php echo htmlspecialchars($search); ?>">
+                      <?php endif; ?>
+                      
+                      <div class="mb-3">
+                        <label class="form-label small fw-bold">Account Status</label>
+                        <select name="status" class="form-select form-select-sm">
+                          <option value="">All Status</option>
+                          <option value="active" <?php echo ($status_filter === 'active') ? 'selected' : ''; ?>>Active</option>
+                          <option value="deactivated" <?php echo ($status_filter === 'deactivated') ? 'selected' : ''; ?>>Deactivated</option>
+                        </select>
+                      </div>
+                      <div class="mb-3">
+                        <label class="form-label small fw-bold">Location / Area</label>
+                        <select name="area_id" class="form-select form-select-sm">
+                          <option value="">All Areas</option>
+                          <?php foreach ($areas_list as $ar): ?>
+                            <option value="<?php echo $ar['id']; ?>" <?php echo ($area_filter == $ar['id']) ? 'selected' : ''; ?>><?php echo htmlspecialchars($ar['name']); ?></option>
+                          <?php endforeach; ?>
+                        </select>
+                      </div>
+                      <div class="d-grid mt-3">
+                        <button type="submit" class="btn btn-primary btn-sm rounded-pill">Apply Filters</button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+
+                <!-- Search Form -->
+                <div class="search-wrapper">
+                    <form action="users.php" method="GET" class="m-0">
+                        <?php if ($role_filter): ?>
+                            <input type="hidden" name="role" value="<?php echo htmlspecialchars($role_filter); ?>">
+                        <?php endif; ?>
+                        <?php if ($area_filter): ?>
+                            <input type="hidden" name="area_id" value="<?php echo htmlspecialchars($area_filter); ?>">
+                        <?php endif; ?>
+                        <?php if ($status_filter): ?>
+                            <input type="hidden" name="status" value="<?php echo htmlspecialchars($status_filter); ?>">
+                        <?php endif; ?>
                         <input type="text" name="search" class="search-pill" 
-                               placeholder="Search by name, email, or username..." 
+                               placeholder="Search users..." 
                                value="<?php echo htmlspecialchars($search ?? ''); ?>">
                         <button type="submit" class="search-btn border-0">
                             <i class="bi bi-search"></i>
                         </button>
-                    </div>
-                </form>
-            </div>
+                    </form>
+                </div>
 
-            <div class="d-flex gap-2">
-                <a href="users.php?search=<?php echo urlencode($search ?? ''); ?>" class="btn btn-sm <?php echo empty($role_filter) ? 'btn-secondary' : 'btn-outline-secondary'; ?> rounded-pill px-3">All</a>
-                <a href="users.php?role=FARMER&search=<?php echo urlencode($search ?? ''); ?>" class="btn btn-sm <?php echo ($role_filter === 'FARMER') ? 'btn-primary' : 'btn-outline-primary'; ?> rounded-pill px-3">Farmers</a>
-                <a href="users.php?role=BUYER&search=<?php echo urlencode($search ?? ''); ?>" class="btn btn-sm <?php echo ($role_filter === 'BUYER') ? 'btn-success' : 'btn-outline-success'; ?> rounded-pill px-3">Buyers</a>
+                <div class="d-flex gap-1 ms-2">
+                    <a href="users.php?search=<?php echo urlencode($search ?? ''); ?>" class="btn btn-sm <?php echo empty($role_filter) ? 'btn-secondary' : 'btn-outline-secondary'; ?> rounded-pill px-3">All</a>
+                    <a href="users.php?role=FARMER&search=<?php echo urlencode($search ?? ''); ?>" class="btn btn-sm <?php echo ($role_filter === 'FARMER') ? 'btn-primary' : 'btn-outline-primary'; ?> rounded-pill px-3">Farmers</a>
+                    <a href="users.php?role=BUYER&search=<?php echo urlencode($search ?? ''); ?>" class="btn btn-sm <?php echo ($role_filter === 'BUYER') ? 'btn-success' : 'btn-outline-success'; ?> rounded-pill px-3">Buyers</a>
+                </div>
             </div>
         </div>
         <div class="card-body p-0">
