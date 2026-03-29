@@ -42,6 +42,25 @@ body.messaging-page {
     padding: 20px 16px 10px 16px;
 }
 
+.search-bar-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.search-bar-wrapper i {
+    position: absolute;
+    left: 16px;
+    color: #65676b;
+    font-size: 1rem;
+    pointer-events: none;
+}
+
+.search-bar-wrapper input {
+    padding-left: 42px !important;
+    font-size: 0.9375rem;
+}
+
 .conversations-header h4 {
     font-weight: 800;
     font-size: 1.5rem;
@@ -494,53 +513,65 @@ body.messaging-page {
 
 /* Mobile Responsive */
 @media (max-width: 991.98px) {
-    /* .conversation-info-panel will be controlled by JS for mobile overlay */
+    .messaging-wrapper {
+        height: calc(100vh - 56px);
+        position: relative;
+    }
+
+    .conversations-list-panel {
+        width: 100%;
+        position: absolute;
+        top: 0;
+        left: 0;
+        height: 100%;
+        z-index: 5;
+        transition: transform 0.3s ease;
+    }
+
+    .message-viewer-panel {
+        width: 100%;
+        position: absolute;
+        top: 0;
+        left: 0;
+        height: 100%;
+        z-index: 10;
+        background: #fff;
+        transform: translateX(100%);
+        transition: transform 0.3s ease;
+    }
+
+    /* When conversation is selected, slide in the viewer and hide the list */
+    .messaging-wrapper.conv-selected .message-viewer-panel {
+        transform: translateX(0);
+    }
+    .messaging-wrapper.conv-selected .conversations-list-panel {
+        transform: translateX(-100%);
+    }
+
+    /* Conversation info panel (Details) */
     .conversation-info-panel {
         position: fixed;
         top: 0;
         right: 0;
         bottom: 0;
-        width: 100%; /* Take full width on small screens */
-        max-width: 320px; /* Max width to mimic desktop width */
-        z-index: 1050; /* Above message content, below modal backdrop */
-        transform: translateX(100%); /* Start off-screen to the right */
-        border-left: none; /* Remove border when it's an overlay */
-        padding-top: 60px; /* Space for chat header */
+        width: 100%;
+        max-width: 100%;
+        z-index: 1050;
+        transform: translateX(100%);
+        transition: transform 0.3s ease;
     }
 
     .conversation-info-panel.show {
-        transform: translateX(0); /* Slide in */
-        width: 100%;
-    }
-
-    /* Mobile-specific positioning for info-panel-header */
-    .info-panel-header {
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        z-index: 10;
-    }
-
-    /* Adjust info-panel-content padding for absolute header on mobile */
-    .info-panel-content {
-        padding-top: 0;
+        transform: translateX(0);
     }
 }
 
 @media (max-width: 768px) {
+    /* Remove the old 80px width logic for mobile */
     .conversations-list-panel {
-        width: 80px;
+        width: 100%;
     }
     .conv-info, .conversations-header h4 {
-        display: none;
-    }
-    .conv-avatar {
-        margin-right: 0;
-    }
-    /* New styles for aligning conv-avatar in mobile view */
-    .conv-item {
-        padding: 10px 0; /* Remove horizontal padding from conv-item itself */
-        justify-content: center; /* Center the avatar within the item */
+        display: block;
     }
 }

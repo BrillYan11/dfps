@@ -2,7 +2,7 @@
 session_start();
 include '../includes/db.php';
 
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'DA') {
+if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['DA', 'DA_SUPER_ADMIN'])) {
     header("Location: ../login.php");
     exit;
 }
@@ -161,14 +161,21 @@ include '../includes/universal_header.php';
     <div class="card border-0 shadow rounded-4 printable-area">
         <div class="card-body p-5">
             <!-- Report Header -->
-            <div class="text-center mb-5">
-                <div class="d-flex justify-content-center align-items-center gap-3 mb-2">
-                    <i class="bi bi-shield-check text-success fs-1"></i>
-                    <h1 class="fw-bold mb-0">DFPS Official Report</h1>
+            <div class="d-flex justify-content-center align-items-center mb-5 pb-4 border-bottom gap-4">
+                <img src="../pic/image/DAlogo.png" alt="DA Logo Left" style="height: 100px;">
+                <div class="text-center">
+                    <h5 class="fw-bold mb-0 text-success">Republic of the Philippines</h5>
+                    <h2 class="fw-bold mb-0 text-success">Department of Agriculture</h2>
+                    <p class="mb-0 text-muted">Bureau of Plant Industry</p>
+                    <p class="mb-0 text-muted">Direct Farmer-to-Buyer Platform (DFPS)</p>
                 </div>
-                <h5 class="text-muted"><?php echo $report_title; ?></h5>
-                <hr class="w-25 mx-auto">
-                <div class="small text-muted mt-2">
+                <img src="../pic/image/Department_of_Agriculture_of_the_Philippines.png" alt="DA Logo Right" style="height: 100px;">
+            </div>
+
+            <div class="text-center mb-5">
+                <h3 class="fw-bold mb-1"><?php echo $report_title; ?></h3>
+                <hr class="w-25 mx-auto mb-3">
+                <div class="small text-muted">
                     Generated on: <?php echo date('F j, Y, g:i a'); ?> by DA Portal<br>
                     <?php if ($date_from): ?>
                         Period: <?php echo date('M j, Y', strtotime($date_from)); ?> to <?php echo date('M j, Y', strtotime($date_to)); ?>

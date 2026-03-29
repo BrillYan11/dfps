@@ -34,7 +34,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                         header("Location: farmer/index.php");
                     } elseif ($role == 'BUYER') {
                         header("Location: buyer/index.php");
-                    } elseif ($role == 'DA') {
+                    } elseif (in_array($role, ['DA', 'DA_SUPER_ADMIN'])) {
                         header("Location: da/index.php");
                     } else {
                         header("Location: index.php");
@@ -85,7 +85,10 @@ include 'includes/universal_header.php';
                 </div>
                 <div class="mb-4">
                     <label for="password" class="form-label">Password</label>
-                    <input type="password" class="form-control" id="password" name="password" placeholder="Enter your password" required>
+                    <div class="position-relative">
+                        <input type="password" class="form-control" id="password" name="password" placeholder="Enter your password" required>
+                        <i class="bi bi-eye-slash password-toggle" id="togglePassword"></i>
+                    </div>
                 </div>
                 <div class="d-grid gap-2">
                     <button type="submit" class="btn btn-primary login-btn">Login</button>
@@ -102,5 +105,24 @@ include 'includes/universal_header.php';
         </div>
     </div>
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const togglePassword = document.querySelector('#togglePassword');
+        const password = document.querySelector('#password');
+
+        if (togglePassword && password) {
+            togglePassword.addEventListener('click', function() {
+                // toggle the type attribute
+                const type = password.getAttribute('type') === 'password' ? 'text' : 'password';
+                password.setAttribute('type', type);
+                
+                // toggle the eye slash icon
+                this.classList.toggle('bi-eye');
+                this.classList.toggle('bi-eye-slash');
+            });
+        }
+    });
+</script>
 
 <?php include 'includes/universal_footer.php'; ?>

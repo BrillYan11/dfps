@@ -161,3 +161,20 @@
     margin-bottom: 20px;
     font-weight: 700;
 }
+
+/* Password Toggle Styles */
+.password-toggle {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    z-index: 10;
+    color: #6c757d;
+    font-size: 1.2rem;
+    transition: color 0.2s ease;
+}
+
+.password-toggle:hover {
+    color: #28a745;
+}

@@ -56,7 +56,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     link.appendChild(badge);
                 }
                 badge.textContent = displayCount;
-                badge.style.display = 'inline-block';
+                badge.style.setProperty('display', 'inline-block', 'important');
             } else if (badge) {
                 badge.style.display = 'none';
             }
@@ -168,8 +168,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const view = convScroll.getAttribute('data-view') || 'active';
         const selectedId = convScroll.getAttribute('data-selected');
+        const searchInput = document.getElementById('conv-search');
+        const query = searchInput ? searchInput.value : '';
 
-        fetch(basePath + `action/Message/get_conversations.php?view=${view}`)
+        fetch(basePath + `action/Message/get_conversations.php?view=${view}&q=${encodeURIComponent(query)}`)
             .then(response => {
                 if (!response.ok) throw new Error('Network response was not ok');
                 return response.json();
@@ -182,6 +184,18 @@ document.addEventListener('DOMContentLoaded', function() {
             .catch(err => console.error('Error fetching conversations:', err));
     }
 
+    // Handle search input with debounce
+    const searchInput = document.getElementById('conv-search');
+    if (searchInput) {
+        let debounceTimer;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => {
+                fetchConversations();
+            }, 300);
+        });
+    }
+
     function renderConversations(conversations, container, selectedId, view) {
         if (conversations.length === 0) {
             container.innerHTML = `<div class="text-center text-muted p-4"><small>No ${view} conversations.</small></div>`;
@@ -191,7 +205,7 @@ document.addEventListener('DOMContentLoaded', function() {
         let html = '';
         conversations.forEach(conv => {
             const isActive = (selectedId == conv.conversation_id);
-            const dispMsg = conv.last_message_deleted ? 'Message unsent' : (conv.last_message || 'No messages yet');
+            const dispMsg = conv.last_message_deleted ? 'Message removed' : (conv.last_message || 'No messages yet');
             const unreadBadge = conv.unread_count > 0 ? `<span class="badge rounded-pill bg-danger" style="font-size: 0.65rem;">${conv.unread_count}</span>` : '';
             const msgClass = (conv.last_message_deleted ? 'fst-italic' : '') + (conv.unread_count > 0 ? ' fw-bold text-dark' : '');
             
@@ -392,40 +406,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 const body = row.querySelector('.message-body');
                 if (body && !body.classList.contains('message-deleted')) {
-                    const isSent = row.classList.contains('sent');
                     body.classList.add('message-deleted');
-                    body.innerHTML = isSent ? "You unsent a message" : "Message unsent";
+                    body.innerHTML = "Message removed";
                     
-                    // Remove the trash icon button if it exists
+                    // Remove the actions if they exist
                     const actions = row.querySelector('.message-actions');
                     if (actions) actions.remove();
                 }
             }
-
-            // Handle Unsend button clicks via AJAX
-            messageContainer.addEventListener('click', function(e) {
-                const btn = e.target.closest('.action-icon-btn');
-                if (btn && btn.href.includes('action/Message/delete.php')) {
-                    e.preventDefault();
-                    if (confirm('Unsend this message?')) {
-                        const url = new URL(btn.href);
-                        url.searchParams.set('ajax', 'true');
-                        
-                        fetch(url.toString())
-                            .then(response => response.json())
-                            .then(data => {
-                                if (data.success) {
-                                    const row = btn.closest('.message-row');
-                                    if (row) {
-                                        const msgId = row.getAttribute('data-id');
-                                        updateDeletedMessageUI(msgId);
-                                    }
-                                }
-                            })
-                            .catch(err => console.error('Error unsending message:', err));
-                    }
-                }
-            });
 
             function appendMessage(msg) {
                 // Check if message already exists (to avoid duplicates if polling overlaps)
@@ -453,13 +441,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     ${avatarHtml}
                     <div class="message ${isSent ? 'sent' : 'received'}">
                         <div class="message-body ${msg.is_deleted ? 'message-deleted' : ''}">
-                            ${msg.is_deleted ? (isSent ? "You unsent a message" : "Message unsent") : msg.body.replace(/\n/g, '<br>')}
+                            ${msg.is_deleted ? "Message removed" : msg.body.replace(/\n/g, '<br>')}
                         </div>
-                        ${(!msg.is_deleted && isSent) ? `
-                            <div class="message-actions">
-                                <a href="${basePath}action/Message/delete.php?message_id=${msg.id}&conv_id=${convId}" class="action-icon-btn" title="Unsend" onclick="return confirm('Unsend this message?')"><i class="bi bi-trash"></i></a>
-                            </div>
-                        ` : ''}
                         <div class="message-time">${time}</div>
                     </div>
                 `;

@@ -10,6 +10,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $last_name = filter_input(INPUT_POST, 'last_name', FILTER_UNSAFE_RAW);
     $username = filter_input(INPUT_POST, 'username', FILTER_UNSAFE_RAW);
     $address = filter_input(INPUT_POST, 'address', FILTER_UNSAFE_RAW);
+    $barangay = filter_input(INPUT_POST, 'barangay_name', FILTER_UNSAFE_RAW);
     $email = filter_input(INPUT_POST, 'email', FILTER_VALIDATE_EMAIL);
     $phone = filter_input(INPUT_POST, 'phone', FILTER_UNSAFE_RAW);
     $password = $_POST['password'] ?? '';
@@ -19,7 +20,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $terms_agreed = isset($_POST['terms_agreed']);
 
     // Basic validation
-    if (!$first_name || !$last_name || !$username || !$address || !$email || !$phone || !$password || !$role || !$city_name) {
+    if (!$first_name || !$last_name || !$username || !$address || !$barangay || !$email || !$phone || !$password || !$role || !$city_name) {
         $error_message = "Please fill in all required fields correctly.";
     } elseif (!$terms_agreed) {
         $error_message = "You must agree to the Terms and Conditions to register.";
@@ -48,19 +49,22 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $password_hash = password_hash($password, PASSWORD_DEFAULT);
 
             // Prepare an insert statement to prevent SQL injection
-            $stmt = $conn->prepare("INSERT INTO users (first_name, last_name, username, address, email, phone, password_hash, role, area_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt = $conn->prepare("INSERT INTO users (first_name, last_name, username, address, barangay, email, phone, password_hash, role, area_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
 
             if ($stmt) {
-                $stmt->bind_param("ssssssssi", $first_name, $last_name, $username, $address, $email, $phone, $password_hash, $role, $area_id);
+                $stmt->bind_param("sssssssssi", $first_name, $last_name, $username, $address, $barangay, $email, $phone, $password_hash, $role, $area_id);
 
-                if ($stmt->execute()) {
-                    $success_message = "Registration successful! You can now login.";
-                } else {
-                    // Check for duplicate entry
-                    if ($conn->errno == 1062) {
-                        $error_message = "This email or username is already registered.";
+                try {
+                    if ($stmt->execute()) {
+                        $success_message = "Registration successful! You can now login.";
                     } else {
                         $error_message = "Error during registration. Please try again later. " . $stmt->error;
+                    }
+                } catch (mysqli_sql_exception $e) {
+                    if ($e->getCode() == 1062) {
+                        $error_message = "This email or username is already registered.";
+                    } else {
+                        $error_message = "Error during registration. Please try again later. " . $e->getMessage();
                     }
                 }
                 $stmt->close();
@@ -122,8 +126,8 @@ include 'includes/universal_header.php';
 
             <!-- Address -->
             <div class="mb-3">
-                <label class="form-label">Detailed Address (Street, Brgy)</label>
-                <input type="text" name="address" class="form-control" placeholder="e.g. 123 Rizal St, Brgy. Poblacion" required>
+                <label class="form-label">Street Address / House No.</label>
+                <input type="text" name="address" class="form-control" placeholder="e.g. 123 Rizal St" required>
             </div>
 
             <!-- Email & Cellphone -->
@@ -141,25 +145,33 @@ include 'includes/universal_header.php';
             <h5 class="form-section-title mt-4">Location Information</h5>
             <!-- Dynamic Location Selects -->
             <div class="row mb-3">
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <label class="form-label">Region</label>
                     <select id="region" class="form-select" required>
                         <option value="" selected disabled>Select region</option>
                     </select>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <label class="form-label">Province</label>
                     <select id="province" class="form-select" disabled required>
                         <option value="" selected disabled>Select province</option>
                     </select>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <label class="form-label">City / Municipality</label>
                     <select id="city" class="form-select" disabled required>
                         <option value="" selected disabled>Select city/municipality</option>
                     </select>
                     <!-- This hidden input will hold the actual name for the database -->
                     <input type="hidden" name="city_name" id="city_name" required>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Barangay</label>
+                    <select id="barangay" class="form-select" disabled required>
+                        <option value="" selected disabled>Select barangay</option>
+                    </select>
+                    <!-- This hidden input will hold the actual name for the database -->
+                    <input type="hidden" name="barangay_name" id="barangay_name" required>
                 </div>
             </div>
 
@@ -212,39 +224,7 @@ include 'includes/universal_header.php';
     </div>
 </div>
 
-<!-- Terms and Conditions Modal -->
-<div class="modal fade" id="termsModal" tabindex="-1" aria-labelledby="termsModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="termsModalLabel">Terms and Conditions</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <h6>1. Introduction</h6>
-                <p>Welcome to the Department of Agriculture Direct Farmer-to-Buyer Platform (DFPS). By accessing or using this platform, you agree to comply with and be bound by the following terms and conditions.</p>
-                
-                <h6>2. User Responsibility</h6>
-                <p>All users (Farmers and Buyers) are responsible for the accuracy of the information provided in their profiles and listings. Misrepresentation of products or identity may lead to account suspension.</p>
-                
-                <h6>3. Transactions</h6>
-                <p>DFPS serves as a platform to connect farmers and buyers. While we facilitate connections, the actual transactions and agreements are between the users. Users are encouraged to verify information before proceeding with payments or deliveries.</p>
-                
-                <h6>4. Prohibited Activities</h6>
-                <p>Users are prohibited from using the platform for any fraudulent or illegal activities. This includes, but is not limited to, the sale of illegal produce, harassment of other users, or attempting to compromise the security of the platform.</p>
-                
-                <h6>5. Data Privacy</h6>
-                <p>Your privacy is important to us. Information collected during registration is used solely for the purpose of facilitating the platform's services. We do not sell your data to third parties.</p>
-                
-                <h6>6. Changes to Terms</h6>
-                <p>The Department of Agriculture reserves the right to modify these terms at any time. Users will be notified of any significant changes.</p>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-            </div>
-        </div>
-    </div>
-</div>
+<?php include 'modal/registration_modal.php'; ?>
 
 <script src="bootstrap/js/location.js"></script>
 <?php include 'includes/universal_footer.php'; ?>

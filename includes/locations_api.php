@@ -25,6 +25,17 @@ if ($action === 'regions') {
 } elseif ($action === 'cities' && isset($_GET['province_id'])) {
     $province_id = urlencode($_GET['province_id']);
     echo fetch_json("$base_url/provinces/$province_id/cities-municipalities/");
+} elseif ($action === 'barangays' && isset($_GET['city_id'])) {
+    $city_id = urlencode($_GET['city_id']);
+    // Try city endpoint first
+    $res = fetch_json("$base_url/cities/$city_id/barangays/");
+    $data = json_decode($res, true);
+    
+    // If it's an error or empty, try municipality endpoint
+    if (isset($data['error']) || empty($data)) {
+        $res = fetch_json("$base_url/municipalities/$city_id/barangays/");
+    }
+    echo $res;
 } else {
     echo json_encode(['error' => 'Invalid action or missing parameters']);
 }

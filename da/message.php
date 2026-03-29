@@ -3,7 +3,7 @@ session_start();
 include '../includes/db.php';
 include '../includes/NotificationModel.php';
 
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'DA') {
+if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['DA', 'DA_SUPER_ADMIN'])) {
     header("Location: ../login.php");
     exit;
 }
@@ -19,6 +19,10 @@ if ($selected_conv_id) {
     $read_stmt->bind_param("ii", $selected_conv_id, $da_id);
     $read_stmt->execute();
     $read_stmt->close();
+
+    // Mark corresponding notifications as read
+    $notif_link = "message.php?conv_id=" . $selected_conv_id;
+    NotificationModel::markAsReadByLink($conn, $da_id, $notif_link);
 }
 
 // --- Handle receiver_id to find or create conversation ---
@@ -149,7 +153,7 @@ include '../includes/universal_header.php';
 ?>
 <link rel="stylesheet" href="../css/message.css?v=<?php echo time(); ?>">
 
-<div class="messaging-wrapper">
+<div class="messaging-wrapper <?php echo $selected_conv_id ? 'conv-selected' : ''; ?>">
   <div class="messaging-layout">
     
     <!-- Left Pane -->
@@ -166,13 +170,19 @@ include '../includes/universal_header.php';
                 </ul>
             </div>
         </div>
+        <div class="px-3 mb-3">
+            <div class="search-bar-wrapper">
+                <i class="bi bi-search"></i>
+                <input type="text" id="conv-search" class="form-control form-control-sm rounded-pill border-0 bg-light py-2 ps-5" placeholder="Search DA Messages">
+            </div>
+        </div>
         <div class="conversations-scroll" data-view="<?php echo $view; ?>" data-selected="<?php echo $selected_conv_id; ?>">
             <?php if (empty($conversations)): ?>
                 <div class="text-center text-muted p-4"><small>No <?php echo $view; ?> conversations found.</small></div>
             <?php else: ?>
                 <?php foreach ($conversations as $conv):
                     $isActive = ($selected_conv_id == $conv['conversation_id']);
-                    $disp_msg = $conv['last_message_deleted'] ? 'Message unsent' : ($conv['last_message'] ?: 'No messages yet');
+                    $disp_msg = $conv['last_message_deleted'] ? 'Message removed' : ($conv['last_message'] ?: 'No messages yet');
                 ?>
                     <a href="message.php?conv_id=<?php echo $conv['conversation_id']; ?>&view=<?php echo $view; ?>" class="conv-item <?php echo $isActive ? 'active' : ''; ?>">
                         <div class="conv-avatar overflow-hidden">
@@ -211,17 +221,10 @@ include '../includes/universal_header.php';
         <?php else: ?>
             <div class="chat-header justify-content-between">
                 <div class="d-flex align-items-center">
-                    <!-- Mobile Hamburger Menu for Chat View -->
-                    <div class="dropdown me-2 chat-menu-dropdown">
-                        <button class="btn btn-sm btn-light rounded-circle chat-menu-btn d-lg-none" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                            <i class="bi bi-list"></i>
-                        </button>
-                        <ul class="dropdown-menu">
-                            <li><h6 class="dropdown-header">Navigation</h6></li>
-                            <li><a class="dropdown-item" href="message.php"><i class="bi bi-chat-left-text me-2"></i>Back to Conversations</a></li>
-                            <li><a class="dropdown-item" href="index.php"><i class="bi bi-speedometer2 me-2"></i>DA Dashboard</a></li>
-                        </ul>
-                    </div>
+                    <!-- Mobile Back Button -->
+                    <a href="message.php?view=<?php echo $view; ?>" class="btn btn-sm btn-light rounded-circle me-2 d-lg-none">
+                        <i class="bi bi-arrow-left"></i>
+                    </a>
 
                     <div class="conv-avatar overflow-hidden" style="width: 40px; height: 40px; margin-right: 12px;">
                         <?php if (!empty($selected_participant['participant_profile_picture'])): ?>
@@ -256,13 +259,8 @@ include '../includes/universal_header.php';
                         <?php endif; ?>
                         <div class="message <?php echo $isSent ? 'sent' : 'received'; ?>">
                             <div class="message-body <?php echo $message['is_deleted'] ? 'message-deleted' : ''; ?>">
-                                <?php echo $message['is_deleted'] ? ($isSent ? "You unsent a message" : "Message unsent") : nl2br(htmlspecialchars($message['body'])); ?>
+                                <?php echo $message['is_deleted'] ? "Message removed" : nl2br(htmlspecialchars($message['body'])); ?>
                             </div>
-                            <?php if (!$message['is_deleted'] && $isSent): ?>
-                                <div class="message-actions">
-                                    <a href="../action/Message/delete.php?message_id=<?php echo $message['id']; ?>&conv_id=<?php echo $selected_conv_id; ?>" class="action-icon-btn" onclick="return confirm('Unsend this message?')"><i class="bi bi-trash"></i></a>
-                                </div>
-                            <?php endif; ?>
                             <div class="message-time"><?php echo date('g:i a', strtotime($message['created_at'])); ?></div>
                         </div>
                     </div>

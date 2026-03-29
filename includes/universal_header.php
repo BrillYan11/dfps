@@ -13,6 +13,18 @@ $base = $is_subdir ? '../' : '';
 
 // Define configuration based on role
 $role = $_SESSION['role'] ?? 'GUEST';
+$da_links = [
+    ['url' => $base . 'da/index.php', 'icon' => 'bi-speedometer2', 'label' => 'Dashboard'],
+    ['url' => $base . 'profile/index.php', 'icon' => 'bi-person-circle', 'label' => 'My Profile'],
+    ['url' => $base . 'da/users.php', 'icon' => 'bi-people', 'label' => 'Users Management'],
+    ['url' => $base . 'da/listings.php', 'icon' => 'bi-card-list', 'label' => 'Listings Overview'],
+    ['url' => $base . 'da/reports.php', 'icon' => 'bi-file-earmark-bar-graph', 'label' => 'System Reports'],
+    ['url' => $base . 'da/message.php', 'icon' => 'bi-chat-dots', 'label' => 'Messages'],
+    ['url' => $base . 'da/produce.php', 'icon' => 'bi-egg-fried', 'label' => 'Produce Master List'],
+    ['url' => $base . 'da/announcements.php', 'icon' => 'bi-megaphone', 'label' => 'Announcements'],
+    ['url' => $base . 'da/send_notification.php', 'icon' => 'bi-broadcast', 'label' => 'Broadcast Alert'],
+];
+
 $config = [
     'FARMER' => [
         'primary_color' => '#28a745',
@@ -34,17 +46,18 @@ $config = [
         'title' => 'DA Portal | Department of Agriculture',
         'brand' => 'DA Portal',
         'menu_header' => 'DA Menu',
-        'links' => [
-            ['url' => $base . 'da/index.php', 'icon' => 'bi-speedometer2', 'label' => 'Dashboard'],
-            ['url' => $base . 'profile/index.php', 'icon' => 'bi-person-circle', 'label' => 'My Profile'],
-            ['url' => $base . 'da/users.php', 'icon' => 'bi-people', 'label' => 'Users Management'],
-            ['url' => $base . 'da/listings.php', 'icon' => 'bi-card-list', 'label' => 'Listings Overview'],
-            ['url' => $base . 'da/reports.php', 'icon' => 'bi-file-earmark-bar-graph', 'label' => 'System Reports'],
-            ['url' => $base . 'da/message.php', 'icon' => 'bi-chat-dots', 'label' => 'Messages'],
-            ['url' => $base . 'da/produce.php', 'icon' => 'bi-egg-fried', 'label' => 'Produce Master List'],
-            ['url' => $base . 'da/announcements.php', 'icon' => 'bi-megaphone', 'label' => 'Announcements'],
-            ['url' => $base . 'da/send_notification.php', 'icon' => 'bi-broadcast', 'label' => 'Broadcast Alert'],
-        ]
+        'links' => $da_links
+    ],
+    'DA_SUPER_ADMIN' => [
+        'primary_color' => '#1a237e',
+        'secondary_color' => '#283593',
+        'title' => 'DA Super Admin Portal',
+        'brand' => 'DA Super Admin',
+        'menu_header' => 'Super Admin Menu',
+        'links' => array_merge($da_links, [
+            ['url' => $base . 'da/create_da.php', 'icon' => 'bi-person-plus-fill', 'label' => 'DA Accounts Management'],
+            ['url' => $base . 'da/backup.php', 'icon' => 'bi-database-fill-gear', 'label' => 'Backup & Restore'],
+        ])
     ],
     'BUYER' => [
         'primary_color' => '#007bff',
@@ -80,8 +93,8 @@ if (isset($_SESSION['user_id']) && isset($conn)) {
     include_once __DIR__ . '/NotificationModel.php';
     $unread_notif_count = NotificationModel::countUnread($conn, $_SESSION['user_id']);
     
-    // Message count for Farmer/Buyer/DA
-    if ($role === 'FARMER' || $role === 'BUYER' || $role === 'DA') {
+    // Message count for Farmer/Buyer/DA/DA_SUPER_ADMIN
+    if ($role === 'FARMER' || $role === 'BUYER' || $role === 'DA' || $role === 'DA_SUPER_ADMIN') {
         $msg_count_sql = "SELECT COUNT(id) as c FROM messages m JOIN conversation_participants cp ON m.conversation_id = cp.conversation_id WHERE cp.user_id = ? AND m.sender_id != ? AND m.read_at IS NULL AND m.is_deleted = 0";
         $msg_count_stmt = $conn->prepare($msg_count_sql);
         $msg_count_stmt->bind_param("ii", $_SESSION['user_id'], $_SESSION['user_id']);
@@ -167,7 +180,7 @@ if (isset($_SESSION['user_id']) && isset($conn)) {
       $brand_url = $base . 'index.php';
       if ($role === 'FARMER') $brand_url = $base . 'farmer/index.php';
       elseif ($role === 'BUYER') $brand_url = $base . 'buyer/index.php';
-      elseif ($role === 'DA') $brand_url = $base . 'da/index.php';
+      elseif (in_array($role, ['DA', 'DA_SUPER_ADMIN'])) $brand_url = $base . 'da/index.php';
     ?>
     <a href="<?php echo $brand_url; ?>" class="app-title-link">
       <img src="<?php echo $base; ?>pic/image/Da_logo.svg" alt="Logo" class="header-logo">
@@ -176,7 +189,7 @@ if (isset($_SESSION['user_id']) && isset($conn)) {
   </div>
 
   <div class="header-right">
-    <?php if ($role === 'FARMER' || $role === 'BUYER' || $role === 'DA'): ?>
+    <?php if ($role === 'FARMER' || $role === 'BUYER' || $role === 'DA' || $role === 'DA_SUPER_ADMIN'): ?>
     <?php 
         if ($role === 'FARMER') $msg_url = $base . 'farmer/message.php';
         elseif ($role === 'BUYER') $msg_url = $base . 'buyer/message.php';
@@ -197,12 +210,12 @@ if (isset($_SESSION['user_id']) && isset($conn)) {
       $notif_url = '#';
       if ($role === 'FARMER') $notif_url = $base . 'farmer/notification.php';
       elseif ($role === 'BUYER') $notif_url = $base . 'buyer/notification.php';
-      elseif ($role === 'DA') $notif_url = $base . 'da/notification.php';
+      elseif ($role === 'DA' || $role === 'DA_SUPER_ADMIN') $notif_url = $base . 'da/notification.php';
     ?>
     <?php if ($role !== 'GUEST'): ?>
     <a href="<?php echo $notif_url; ?>" class="header-item">
       <i class="bi bi-bell"></i>
-      <span class="d-none d-md-block"><?php echo ($role === 'DA') ? 'Alerts' : 'Notification'; ?></span>
+      <span class="d-none d-md-block"><?php echo (in_array($role, ['DA', 'DA_SUPER_ADMIN'])) ? 'Alerts' : 'Notification'; ?></span>
       <?php if ($unread_notif_count > 0): ?>
           <span class="badge rounded-pill bg-danger">
               <?php echo $unread_notif_count > 99 ? '99+' : $unread_notif_count; ?>

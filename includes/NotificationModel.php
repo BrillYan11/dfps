@@ -78,6 +78,23 @@ class NotificationModel {
     }
     
     /**
+     * Marks notifications as read by link and user_id.
+     *
+     * @param mysqli $conn
+     * @param int $user_id
+     * @param string $link
+     * @return bool
+     */
+    public static function markAsReadByLink(mysqli $conn, int $user_id, string $link): bool {
+        $sql = "UPDATE notifications SET is_read = 1 WHERE user_id = ? AND link = ? AND is_read = 0";
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("is", $user_id, $link);
+        $success = $stmt->execute();
+        $stmt->close();
+        return $success;
+    }
+
+    /**
      * Deletes a single notification.
      *
      * @param mysqli $conn
