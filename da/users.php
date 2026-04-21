@@ -1,7 +1,9 @@
 <?php
-session_start();
-include '../includes/db.php';
-include '../includes/pagination.php';
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+include_once __DIR__ . '/../includes/db.php';
+include_once __DIR__ . '/../includes/pagination.php';
 
 if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['DA', 'DA_SUPER_ADMIN'])) {
     header("Location: ../login.php");
@@ -17,12 +19,27 @@ $limit = 10;
 $offset = ($page - 1) * $limit;
 
 // Fetch areas for filter
-$areas_list = $conn->query("SELECT id, name FROM areas ORDER BY name ASC")->fetch_all(MYSQLI_ASSOC);
+$areas_res = $conn->query("SELECT id, name FROM areas ORDER BY name ASC");
+$areas_list = [];
+if ($areas_res) {
+    while ($row = $areas_res->fetch_assoc()) {
+        $areas_list[] = $row;
+    }
+}
 
 // 1. Analytics for the header
-$total_farmers = $conn->query("SELECT COUNT(*) FROM users WHERE role = 'FARMER'")->fetch_row()[0];
-$total_buyers = $conn->query("SELECT COUNT(*) FROM users WHERE role = 'BUYER'")->fetch_row()[0];
-$active_accounts = $conn->query("SELECT COUNT(*) FROM users WHERE is_active = 1")->fetch_row()[0];
+$total_farmers = 0;
+$total_buyers = 0;
+$active_accounts = 0;
+
+$res1 = $conn->query("SELECT COUNT(*) FROM users WHERE role = 'FARMER'");
+if ($res1) $total_farmers = $res1->fetch_row()[0];
+
+$res2 = $conn->query("SELECT COUNT(*) FROM users WHERE role = 'BUYER'");
+if ($res2) $total_buyers = $res2->fetch_row()[0];
+
+$res3 = $conn->query("SELECT COUNT(*) FROM users WHERE is_active = 1");
+if ($res3) $active_accounts = $res3->fetch_row()[0];
 
 // 2. Count total for pagination
 $count_query = "SELECT COUNT(*) FROM users WHERE 1=1";
