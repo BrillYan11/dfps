@@ -159,6 +159,13 @@ if ($check_area->num_rows == 0) {
     echo "Default area created.<br>";
 }
 
+// Add some default produce if none exist
+$check_produce = $conn->query("SELECT id FROM produce LIMIT 1");
+if ($check_produce->num_rows == 0) {
+    $conn->query("INSERT INTO produce (name, unit, srp) VALUES ('Rice', 'kg', 45.00), ('Corn', 'kg', 30.00), ('Tomato', 'kg', 60.00)");
+    echo "Default produce added.<br>";
+}
+
 // Ensure at least one Super Admin exists
 $check_super = $conn->query("SELECT id FROM users WHERE role = 'DA_SUPER_ADMIN' LIMIT 1");
 if ($check_super->num_rows == 0) {
