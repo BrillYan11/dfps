@@ -1,5 +1,7 @@
 <?php
 // includes/db.php
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
 
 $servername = getenv('DB_HOST') ?: "localhost";
 $username = getenv('DB_USER') ?: "root";
@@ -28,9 +30,11 @@ if ($conn->connect_error) {
 $conn->set_charset("utf8mb4");
 
 // --- SELF-HEALING: Ensure new messaging columns exist ---
-function table_exists($conn, $table) {
-    $res = $conn->query("SHOW TABLES LIKE '$table'");
-    return $res->num_rows > 0;
+if (!function_exists('table_exists')) {
+    function table_exists($conn, $table) {
+        $res = $conn->query("SHOW TABLES LIKE '$table'");
+        return $res && $res->num_rows > 0;
+    }
 }
 
 if (table_exists($conn, 'conversation_participants')) {
