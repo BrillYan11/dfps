@@ -1,20 +1,28 @@
 <?php
-include_once __DIR__ . '/security_config.php';
+// includes/EncryptionUtil.php
 
 class EncryptionUtil {
     private static $key;
     private static $cipher;
 
     public static function init() {
-        if (!defined('ENCRYPTION_KEY') || ENCRYPTION_KEY === 'YOUR_STRONG_RANDOM_32_BYTE_KEY_HERE') {
-            error_log("ERROR: ENCRYPTION_KEY is not set or is still default. Messages will NOT be securely encrypted/decrypted.");
-            // For development, you might choose to throw an exception or return false
-            // For production, this should definitely prevent further execution
-            self::$key = null; // Ensure no operations if key is invalid
+        $raw_key = getenv('ENCRYPTION_KEY') ?: 'base64:L7p3p/X9Vz4Y/Q3Z0yG6w7+P2T/E9k8L0M1N2O3P4Q5='; // Default key for dev
+        $cipher = getenv('CIPHER_METHOD') ?: 'AES-256-CBC';
+
+        if (strpos($raw_key, 'base64:') === 0) {
+            self::$key = base64_decode(substr($raw_key, 7));
+        } else {
+            self::$key = $raw_key;
+        }
+
+        self::$cipher = $cipher;
+        
+        if (empty(self::$key) || strlen(self::$key) < 16) {
+            error_log("ERROR: ENCRYPTION_KEY is too short or not set. Messages will NOT be securely encrypted.");
+            self::$key = null;
             return false;
         }
-        self::$key = base64_decode(ENCRYPTION_KEY);
-        self::$cipher = CIPHER_METHOD;
+        
         return true;
     }
 
