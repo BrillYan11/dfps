@@ -106,7 +106,7 @@ if (isset($_SESSION['user_id']) && isset($conn)) {
     $unread_notif_count = NotificationModel::countUnread($conn, $_SESSION['user_id']);
     
     if ($role === 'FARMER' || $role === 'BUYER' || $role === 'DA' || $role === 'DA_SUPER_ADMIN') {
-        $msg_count_sql = "SELECT COUNT(id) as c FROM messages m JOIN conversation_participants cp ON m.conversation_id = cp.conversation_id WHERE cp.user_id = ? AND m.sender_id != ? AND m.read_at IS NULL AND m.is_deleted = 0";
+        $msg_count_sql = "SELECT COUNT(m.id) as c FROM messages m JOIN conversation_participants cp ON m.conversation_id = cp.conversation_id WHERE cp.user_id = ? AND m.sender_id != ? AND m.read_at IS NULL AND m.is_deleted = 0";
         $msg_count_stmt = $conn->prepare($msg_count_sql);
         $msg_count_stmt->bind_param("ii", $_SESSION['user_id'], $_SESSION['user_id']);
         $msg_count_stmt->execute();
