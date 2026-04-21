@@ -1,6 +1,9 @@
 <?php
 session_start();
 include '../../includes/db.php';
+include_once '../../includes/EncryptionUtil.php';
+
+EncryptionUtil::init();
 
 header('Content-Type: application/json');
 
@@ -58,8 +61,8 @@ $conv_stmt->execute();
 $conv_result = $conv_stmt->get_result();
 $conversations = [];
 while ($row = $conv_result->fetch_assoc()) {
-    $conversations[] = $row;
-}
+    $row['last_message'] = EncryptionUtil::decrypt($row['last_message']);
+    $conversations[] = $row;}
 $conv_stmt->close();
 
 echo json_encode(['conversations' => $conversations]);

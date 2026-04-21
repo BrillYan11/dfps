@@ -4,6 +4,7 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 include '../includes/db.php';
 include_once '../includes/NotificationModel.php';
+require_once '../includes/url_helpers.php';
 
 // Authentication and Authorization Check
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || strtoupper($_SESSION['role']) !== 'BUYER') {
@@ -12,6 +13,10 @@ if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || strtoupper($_SE
 }
 
 $buyer_id = $_SESSION['user_id'];
+
+// Mark all notifications as read when visiting this page
+NotificationModel::markAllAsRead($conn, $buyer_id);
+
 $notifications = NotificationModel::getNotificationsForUser($conn, $buyer_id);
 
 function get_notification_icon($type) {
@@ -26,9 +31,24 @@ function get_notification_icon($type) {
 }
 
 include '../includes/universal_header.php';
+
+$pageUrl = static function (string $path = ''): string {
+    if (function_exists('dfps_url')) {
+        return dfps_url($path);
+    }
+    $normalized = trim(str_replace('\\', '/', $path), '/');
+    return $normalized === '' ? '/' : '/' . $normalized;
+};
+
+$assetUrl = static function (string $path): string {
+    if (function_exists('dfps_asset')) {
+        return dfps_asset($path);
+    }
+    return '/' . trim(str_replace('\\', '/', $path), '/');
+};
 ?>
 
-<link rel="stylesheet" href="../css/notification.css?v=<?php echo time(); ?>">
+<link rel="stylesheet" href="<?php echo $assetUrl('css/notification.css'); ?>?v=<?php echo time(); ?>">
 
 <main class="container-fluid px-4 my-3">
   <div class="row g-3">
@@ -37,8 +57,8 @@ include '../includes/universal_header.php';
     <aside class="col-12 col-md-3 col-lg-2">
       <div class="panel h-100 p-3">
         <nav class="nav flex-column">
-          <a class="nav-link" href="index.php"><i class="bi bi-shop me-2"></i>Marketplace</a>
-          <a class="nav-link" href="message.php"><i class="bi bi-chat-dots me-2"></i>Messages</a>
+          <a class="nav-link" href="<?php echo $pageUrl('buyer/'); ?>"><i class="bi bi-shop me-2"></i>Marketplace</a>
+          <a class="nav-link" href="<?php echo $pageUrl('buyer/message'); ?>"><i class="bi bi-chat-dots me-2"></i>Messages</a>
         </nav>
       </div>
     </aside>
@@ -70,7 +90,7 @@ include '../includes/universal_header.php';
                     continue;
                 }
                 $has_link = !empty($notif['link']);
-                $view_link = $has_link ? '../action/Notification/mark_read.php?id=' . $notif['id'] . '&redirect=' . urlencode($notif['link']) : 'javascript:void(0)';
+                $view_link = $has_link ? dfps_helper_url('action/Notification/mark_read.php') . '?id=' . $notif['id'] . '&redirect=' . urlencode($notif['link']) : 'javascript:void(0)';
             ?>
                 <div class="notification-item <?php echo !$notif['is_read'] ? 'notification-unread' : ''; ?> clickable" 
                      data-id="<?php echo $notif['id']; ?>"
@@ -89,7 +109,7 @@ include '../includes/universal_header.php';
                         <?php if ($has_link): ?>
                             <a href="<?php echo $view_link; ?>" class="btn btn-sm btn-primary">View</a>
                         <?php endif; ?>
-                        <a href="../action/Notification/dismiss.php?id=<?php echo $notif['id']; ?>" 
+                        <a href="<?php echo dfps_helper_url('action/Notification/dismiss.php'); ?>?id=<?php echo $notif['id']; ?>" 
                            class="btn btn-sm btn-outline-secondary" 
                            title="Dismiss"
                            onclick="event.stopPropagation();">
@@ -108,3 +128,17 @@ include '../includes/universal_header.php';
 </main>
 
 <?php include '../includes/universal_footer.php'; ?>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Clear the notification badge instantly
+        if (typeof updateNotificationBadge === 'function') {
+            updateNotificationBadge();
+        } else {
+            const bellLinks = document.querySelectorAll('.header-item[href*="/notification"], .sidebar-link[href*="/notification"]');
+            bellLinks.forEach(link => {
+                const badge = link.querySelector('.badge');
+                if (badge) badge.style.display = 'none';
+            });
+        }
+    });
+</script>

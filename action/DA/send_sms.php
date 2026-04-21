@@ -1,7 +1,7 @@
 <?php
 session_start();
 include '../../includes/db.php';
-require_once '../../includes/sample_sms_gsm.php';
+require_once '../../includes/SMSModel.php';
 
 header('Content-Type: application/json');
 
@@ -13,8 +13,6 @@ if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['DA', 'DA_SUPE
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $user_id = filter_input(INPUT_POST, 'user_id', FILTER_VALIDATE_INT);
     $message = trim($_POST['message'] ?? '');
-    $device = $_POST['gsm_device'] ?: 'COM3';
-    $baud = intval($_POST['gsm_baud'] ?: 9600);
 
     if (!$user_id || empty($message)) {
         echo json_encode(['success' => false, 'error' => 'User ID and message are required.']);
@@ -33,24 +31,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    $gsm = new GSMModule($device, $baud);
-    $gsm->setDebug(false);
+    // CRITICAL: Release session lock
+    session_write_close();
 
-    if ($gsm->connect()) {
-        if ($gsm->initialize()) {
-            $res = $gsm->sendSMS($user['phone'], $message);
-            $gsm->disconnect();
-            
-            if ($res['success']) {
-                echo json_encode(['success' => true, 'message' => 'SMS sent successfully to ' . $user['first_name'] . '.']);
-            } else {
-                echo json_encode(['success' => false, 'error' => 'GSM Error: ' . ($res['response'] ?: 'Failed to send')]);
-            }
-        } else {
-            echo json_encode(['success' => false, 'error' => 'Failed to initialize GSM module.']);
-        }
+    $res = SMSModel::sendSMS($user['phone'], $message);
+    
+    if ($res['success']) {
+        echo json_encode(['success' => true, 'message' => 'SMS sent successfully to ' . $user['first_name'] . '.']);
     } else {
-        echo json_encode(['success' => false, 'error' => 'Could not connect to GSM device. ' . $gsm->getLastError()]);
+        echo json_encode(['success' => false, 'error' => 'SMS Error: ' . ($res['error'] ?: 'Failed to send')]);
     }
 } else {
     echo json_encode(['success' => false, 'error' => 'Invalid request method.']);

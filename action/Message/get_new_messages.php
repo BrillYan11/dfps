@@ -1,6 +1,9 @@
 <?php
 session_start();
 include '../../includes/db.php';
+include_once '../../includes/EncryptionUtil.php';
+
+EncryptionUtil::init();
 
 header('Content-Type: application/json');
 
@@ -34,6 +37,12 @@ $msg_stmt->bind_param("ii", $conv_id, $last_id);
 $msg_stmt->execute();
 $messages = $msg_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 $msg_stmt->close();
+
+// Decrypt message bodies
+$messages = array_map(function($msg) {
+    $msg['body'] = EncryptionUtil::decrypt($msg['body']);
+    return $msg;
+}, $messages);
 
 // Fetch ALL deleted message IDs for this conversation to sync UI
 $del_stmt = $conn->prepare("SELECT id FROM messages WHERE conversation_id = ? AND is_deleted = 1");

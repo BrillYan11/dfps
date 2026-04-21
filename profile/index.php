@@ -1,6 +1,7 @@
 <?php
 session_start();
 include '../includes/db.php';
+require_once '../includes/ImageUtil.php';
 
 if (!isset($_SESSION['user_id'])) {
     header("Location: ../login.php");
@@ -74,17 +75,29 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $upload_dir = '../uploads/profile_pics/';
             if (!is_dir($upload_dir)) mkdir($upload_dir, 0777, true);
             
-            $filename = uniqid() . '-' . basename($_FILES['profile_picture']['name']);
+            // Use .jpg for profile pics too, or keep original if you want but JPEG is smaller
+            $filename = uniqid() . '.jpg';
             $target_file = $upload_dir . $filename;
 
-            if (move_uploaded_file($_FILES['profile_picture']['tmp_name'], $target_file)) {
+            if (ImageUtil::compressImage($_FILES['profile_picture']['tmp_name'], $target_file, 80, 500)) {
                 $profile_picture = 'uploads/profile_pics/' . $filename;
                 // Delete old picture if exists
                 if ($user['profile_picture'] && file_exists('../' . $user['profile_picture'])) {
                     unlink('../' . $user['profile_picture']);
                 }
             } else {
-                $error_message = "Failed to upload profile picture.";
+                // Fallback
+                $filename = uniqid() . '-' . basename($_FILES['profile_picture']['name']);
+                $target_file = $upload_dir . $filename;
+                if (move_uploaded_file($_FILES['profile_picture']['tmp_name'], $target_file)) {
+                    $profile_picture = 'uploads/profile_pics/' . $filename;
+                    // Delete old picture if exists
+                    if ($user['profile_picture'] && file_exists('../' . $user['profile_picture'])) {
+                        unlink('../' . $user['profile_picture']);
+                    }
+                } else {
+                    $error_message = "Failed to upload profile picture.";
+                }
             }
         }
 

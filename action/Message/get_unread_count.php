@@ -21,6 +21,7 @@ $sql = "
     AND m.sender_id != ? 
     AND m.read_at IS NULL
     AND m.is_deleted = 0
+    AND cp.is_archived = 0
 ";
 
 $stmt = $conn->prepare($sql);

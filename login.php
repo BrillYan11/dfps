@@ -2,6 +2,15 @@
 session_start();
 include 'includes/db.php';
 
+$appUrl = static function (string $path = ''): string {
+    if (function_exists('dfps_url')) {
+        return dfps_url($path);
+    }
+
+    $normalized = trim(str_replace('\\', '/', $path), '/');
+    return $normalized === '' ? '/' : '/' . $normalized;
+};
+
 $error_message = '';
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
@@ -31,13 +40,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
                     // Redirect user based on role
                     if ($role == 'FARMER') {
-                        header("Location: farmer/index.php");
+                        header("Location: " . $appUrl('farmer/'));
                     } elseif ($role == 'BUYER') {
-                        header("Location: buyer/index.php");
+                        header("Location: " . $appUrl('buyer/'));
                     } elseif (in_array($role, ['DA', 'DA_SUPER_ADMIN'])) {
-                        header("Location: da/index.php");
+                        header("Location: " . $appUrl('da/'));
                     } else {
-                        header("Location: index.php");
+                        header("Location: " . $appUrl());
                     }
                     exit();
                 } else {
@@ -78,7 +87,7 @@ include 'includes/universal_header.php';
                     }, 3000);
                 </script>
             <?php endif; ?>
-            <form action="login.php" method="POST">
+            <form action="<?php echo $appUrl('login'); ?>" method="POST">
                 <div class="mb-3">
                     <label for="email" class="form-label">Email address</label>
                     <input type="email" class="form-control" id="email" name="email" placeholder="Enter your email" required>
@@ -94,12 +103,12 @@ include 'includes/universal_header.php';
                     <button type="submit" class="btn btn-primary login-btn">Login</button>
                 </div>
                 <div class="mt-4 text-center">
-                    <a href="forgot_password.php" class="text-decoration-none text-muted small">Forgot Password?</a>
+                    <a href="<?php echo $appUrl('forgot_password'); ?>" class="text-decoration-none text-muted small">Forgot Password?</a>
                 </div>
                 <hr>
                 <div class="text-center">
                     <p class="mb-0 small text-muted">Don't have an account?</p>
-                    <a href="register.php" class="text-decoration-none fw-bold text-success">Register here</a>
+                    <a href="<?php echo $appUrl('register'); ?>" class="text-decoration-none fw-bold text-success">Register here</a>
                 </div>
             </form>
         </div>

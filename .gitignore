@@ -1,0 +1,6 @@
+
+# Security Configuration - DO NOT COMMIT
+includes/security_config.php
+
+# User Uploads - DO NOT COMMIT
+uploads/

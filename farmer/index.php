@@ -91,7 +91,7 @@ include '../includes/universal_header.php';
                     </div>
                 <?php endforeach; ?>
             <?php endif; ?>
-            <a href="#" class="btn btn-sm btn-link p-0 text-decoration-none">View All</a>
+            <a href="announcements.php" class="btn btn-sm btn-link p-0 text-decoration-none">View All</a>
           </div>
         </div>
       </aside>

@@ -1,10 +1,12 @@
 <?php
 session_start();
 include '../includes/db.php';
+require_once '../includes/ImageUtil.php';
+require_once '../includes/url_helpers.php';
 
 // Authentication and Authorization Check
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'FARMER') {
-    header("Location: ../login.php");
+    header("Location: " . dfps_helper_url('login'));
     exit;
 }
 
@@ -53,14 +55,23 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         if (!is_dir($upload_dir)) {
             mkdir($upload_dir, 0755, true);
         }
-        $filename = uniqid() . '-' . basename($_FILES['post_image']['name']);
+        
+        // Use a unique filename with .jpg extension for better compression
+        $filename = uniqid() . '.jpg';
         $target_file = $upload_dir . $filename;
 
-        if (move_uploaded_file($_FILES['post_image']['tmp_name'], $target_file)) {
-            // Store relative path for web access
+        // Compress and save. Quality 70 is usually a good balance.
+        if (ImageUtil::compressImage($_FILES['post_image']['tmp_name'], $target_file, 70, 1000)) {
             $image_path = 'uploads/' . $filename;
         } else {
-            $error_message = 'Failed to upload image.';
+            // Fallback if compression fails
+            $filename = uniqid() . '-' . basename($_FILES['post_image']['name']);
+            $target_file = $upload_dir . $filename;
+            if (move_uploaded_file($_FILES['post_image']['tmp_name'], $target_file)) {
+                $image_path = 'uploads/' . $filename;
+            } else {
+                $error_message = 'Failed to upload image.';
+            }
         }
     }
 
@@ -100,7 +111,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $conn->commit();
             $success_message = "Your product has been posted successfully!";
             // Redirect after a short delay
-            header("refresh:2;url=index.php");
+            header("Refresh: 2; url=" . dfps_helper_url('farmer/'));
 
         } catch (Exception $e) {
             $conn->rollback();
@@ -122,7 +133,7 @@ include '../includes/universal_header.php';
     <div class="col-12 col-md-10 col-lg-8">
 
       <div class="d-flex align-items-center mb-3">
-        <a href="index.php" class="btn btn-sm btn-outline-secondary me-2"><i class="bi bi-arrow-left"></i></a>
+        <a href="<?php echo dfps_helper_url('farmer/'); ?>" class="btn btn-sm btn-outline-secondary me-2"><i class="bi bi-arrow-left"></i></a>
         <h3 class="mb-0">Create a New Product Post</h3>
       </div>
 
@@ -138,7 +149,7 @@ include '../includes/universal_header.php';
       <div class="card">
         <div class="card-body p-4">
 
-          <form method="POST" action="add_post.php" enctype="multipart/form-data">
+          <form method="POST" action="<?php echo dfps_helper_url('farmer/add_post'); ?>" enctype="multipart/form-data">
 
             <div class="mb-3">
               <label class="form-label">Post Title</label>

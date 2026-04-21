@@ -1,10 +1,12 @@
 <?php
 session_start();
 include '../includes/db.php';
+require_once '../includes/ImageUtil.php';
+require_once '../includes/url_helpers.php';
 
 // Authentication and Authorization Check
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'FARMER') {
-    header("Location: ../login.php");
+    header("Location: " . dfps_helper_url('login'));
     exit;
 }
 
@@ -12,7 +14,7 @@ $farmer_id = $_SESSION['user_id'];
 $post_id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
 
 if (!$post_id) {
-    header("Location: index.php");
+    header("Location: " . dfps_helper_url('farmer/'));
     exit;
 }
 
@@ -32,7 +34,7 @@ $stmt->close();
 
 if (!$post) {
     // Farmer does not own this post or post does not exist
-    header("Location: index.php");
+    header("Location: " . dfps_helper_url('farmer/'));
     exit;
 }
 
@@ -85,11 +87,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 }
 
                 $upload_dir = '../uploads/';
-                $filename = uniqid() . '-' . basename($_FILES['post_image']['name']);
+                // Use .jpg for consistent compression
+                $filename = uniqid() . '.jpg';
                 $target_file = $upload_dir . $filename;
                 $image_path_for_db = 'uploads/' . $filename;
 
-                if (move_uploaded_file($_FILES['post_image']['tmp_name'], $target_file)) {
+                if (ImageUtil::compressImage($_FILES['post_image']['tmp_name'], $target_file, 70, 1000)) {
                     $img_stmt = $conn->prepare("INSERT INTO post_images (post_id, file_path) VALUES (?, ?)");
                     $img_stmt->bind_param("is", $post_id, $image_path_for_db);
                     if (!$img_stmt->execute()) {
@@ -97,13 +100,26 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     }
                     $img_stmt->close();
                 } else {
-                    throw new Exception("Failed to upload new image.");
+                    // Fallback
+                    $filename = uniqid() . '-' . basename($_FILES['post_image']['name']);
+                    $target_file = $upload_dir . $filename;
+                    $image_path_for_db = 'uploads/' . $filename;
+                    if (move_uploaded_file($_FILES['post_image']['tmp_name'], $target_file)) {
+                        $img_stmt = $conn->prepare("INSERT INTO post_images (post_id, file_path) VALUES (?, ?)");
+                        $img_stmt->bind_param("is", $post_id, $image_path_for_db);
+                        if (!$img_stmt->execute()) {
+                            throw new Exception("Error saving new image reference.");
+                        }
+                        $img_stmt->close();
+                    } else {
+                        throw new Exception("Failed to upload new image.");
+                    }
                 }
             }
 
             $conn->commit();
             $success_message = "Post updated successfully!";
-            header("refresh:2;url=index.php");
+            header("Refresh: 2; url=" . dfps_helper_url('farmer/'));
 
         } catch (Exception $e) {
             $conn->rollback();
@@ -121,7 +137,7 @@ include '../includes/universal_header.php';
     <div class="col-12 col-md-10 col-lg-8">
 
       <div class="d-flex align-items-center mb-3">
-        <a href="index.php" class="btn btn-sm btn-outline-secondary me-2"><i class="bi bi-arrow-left"></i></a>
+        <a href="<?php echo dfps_helper_url('farmer/'); ?>" class="btn btn-sm btn-outline-secondary me-2"><i class="bi bi-arrow-left"></i></a>
         <h3 class="mb-0">Edit Product Post</h3>
       </div>
 
@@ -135,7 +151,7 @@ include '../includes/universal_header.php';
       <?php if (empty($success_message)): ?>
       <div class="card">
         <div class="card-body p-4">
-          <form method="POST" action="edit_post.php?id=<?php echo $post_id; ?>" enctype="multipart/form-data">
+          <form method="POST" action="<?php echo dfps_helper_url('farmer/edit_post'); ?>?id=<?php echo $post_id; ?>" enctype="multipart/form-data">
             <div class="mb-3">
               <label class="form-label">Post Title</label>
               <input type="text" name="title" class="form-control" value="<?php echo htmlspecialchars($post['title']); ?>" required>
@@ -185,7 +201,7 @@ include '../includes/universal_header.php';
               <label for="post_image" class="form-label">Change Product Image</label>
               <div class="d-flex align-items-center">
                   <?php if (!empty($post['file_path'])): ?>
-                    <img src="../<?php echo htmlspecialchars($post['file_path']); ?>" width="100" class="me-3 rounded">
+                    <img src="<?php echo dfps_helper_asset($post['file_path']); ?>" width="100" class="me-3 rounded">
                   <?php endif; ?>
                   <input class="form-control" type="file" id="post_image" name="post_image" accept="image/png, image/jpeg, image/gif">
               </div>

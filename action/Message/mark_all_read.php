@@ -1,9 +1,10 @@
 <?php
 session_start();
 include '../../includes/db.php';
+require_once '../../includes/url_helpers.php';
 
 if (!isset($_SESSION['user_id'])) {
-    header("Location: ../../login.php");
+    header("Location: " . dfps_helper_url('login'));
     exit;
 }
 
@@ -33,11 +34,9 @@ $notif_stmt->bind_param("i", $user_id);
 $notif_stmt->execute();
 $notif_stmt->close();
 
-$redirect_path = '../../buyer/message.php';
-if ($role === 'FARMER') {
-    $redirect_path = '../../farmer/message.php';
-} elseif (in_array($role, ['DA', 'DA_SUPER_ADMIN'])) {
-    $redirect_path = '../../da/message.php';
+$redirect_path = (strtoupper($role) === 'FARMER') ? dfps_helper_url('farmer/message') : dfps_helper_url('buyer/message');
+if (in_array($role, ['DA', 'DA_SUPER_ADMIN'])) {
+    $redirect_path = dfps_helper_url('da/message');
 }
 header("Location: " . $redirect_path);
 exit;

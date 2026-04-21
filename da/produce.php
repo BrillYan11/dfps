@@ -7,8 +7,9 @@ if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['DA', 'DA_SUPE
     exit;
 }
 
-$success_msg = '';
-$error_msg = '';
+$success_msg = $_SESSION['success_message'] ?? '';
+$error_msg = $_SESSION['error_message'] ?? '';
+unset($_SESSION['success_message'], $_SESSION['error_message']);
 
 // Handle Adding New Produce
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_produce'])) {
@@ -109,12 +110,24 @@ include '../includes/universal_header.php';
                                                 </span>
                                             </td>
                                             <td class="text-end pe-4">
-                                                <button class="btn btn-sm btn-outline-primary rounded-pill edit-btn" 
-                                                        data-name="<?php echo htmlspecialchars($item['name']); ?>" 
-                                                        data-unit="<?php echo htmlspecialchars($item['unit']); ?>" 
-                                                        data-srp="<?php echo $item['srp']; ?>">
-                                                    <i class="bi bi-pencil"></i> Edit
-                                                </button>
+                                                <div class="d-flex justify-content-end gap-2">
+                                                    <button class="btn btn-sm btn-outline-primary rounded-pill edit-btn" 
+                                                            data-name="<?php echo htmlspecialchars($item['name']); ?>" 
+                                                            data-unit="<?php echo htmlspecialchars($item['unit']); ?>" 
+                                                            data-srp="<?php echo $item['srp']; ?>">
+                                                        <i class="bi bi-pencil"></i> Edit
+                                                    </button>
+                                                    <a href="../action/DA/toggle_produce.php?id=<?php echo $item['id']; ?>&status=<?php echo $item['is_active'] ? '0' : '1'; ?>" 
+                                                       class="btn btn-sm <?php echo $item['is_active'] ? 'btn-outline-warning' : 'btn-outline-success'; ?> rounded-pill"
+                                                       title="<?php echo $item['is_active'] ? 'Deactivate' : 'Activate'; ?>">
+                                                        <i class="bi <?php echo $item['is_active'] ? 'bi-slash-circle' : 'bi-check-circle'; ?>"></i>
+                                                    </a>
+                                                    <a href="../action/DA/delete_produce.php?id=<?php echo $item['id']; ?>" 
+                                                       class="btn btn-sm btn-outline-danger rounded-pill" 
+                                                       onclick="return confirm('Are you sure you want to delete this produce? This action cannot be undone and will only succeed if the produce is not linked to any posts.')">
+                                                        <i class="bi bi-trash"></i>
+                                                    </a>
+                                                </div>
                                             </td>
                                         </tr>
                                     <?php endforeach; ?>

@@ -3,6 +3,7 @@ session_start();
 include '../includes/db.php';
 include '../includes/NotificationModel.php';
 include_once '../includes/Logger.php';
+require_once '../includes/url_helpers.php';
 
 if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['DA', 'DA_SUPER_ADMIN'])) {
     header("Location: ../login.php");
@@ -21,6 +22,9 @@ $recent_logs = [];
 if ($view === 'logs' && $role === 'DA_SUPER_ADMIN') {
     $recent_logs = Logger::getRecentLogs($conn, $limit);
 } else {
+    // Remove automatic markAllAsRead so users can see unread items darkened
+    // NotificationModel::markAllAsRead($conn, $da_id);
+    
     $notifications = NotificationModel::getNotificationsForUser($conn, $da_id);
     $view = 'notifications'; // Fallback
 }
@@ -35,9 +39,24 @@ function get_notification_icon($type) {
 }
 
 include '../includes/universal_header.php';
+
+$pageUrl = static function (string $path = ''): string {
+    if (function_exists('dfps_url')) {
+        return dfps_url($path);
+    }
+    $normalized = trim(str_replace('\\', '/', $path), '/');
+    return $normalized === '' ? '/' : '/' . $normalized;
+};
+
+$assetUrl = static function (string $path): string {
+    if (function_exists('dfps_asset')) {
+        return dfps_asset($path);
+    }
+    return '/' . trim(str_replace('\\', '/', $path), '/');
+};
 ?>
 
-<link rel="stylesheet" href="../css/notification.css?v=<?php echo time(); ?>">
+<link rel="stylesheet" href="<?php echo $assetUrl('css/notification.css'); ?>?v=<?php echo time(); ?>">
 <style>
     .log-table-container {
         border-radius: 12px;
@@ -95,18 +114,18 @@ include '../includes/universal_header.php';
       <div class="panel p-3">
         <nav class="nav nav-pills flex-column">
           <h6 class="text-muted small fw-bold text-uppercase mb-3 px-2">System Menu</h6>
-          <a class="nav-link mb-1 <?php echo ($view === 'notifications') ? 'active text-white' : ''; ?>" href="notification.php">
+          <a class="nav-link mb-1 <?php echo ($view === 'notifications') ? 'active text-white' : ''; ?>" href="<?php echo $pageUrl('da/notification'); ?>">
             <i class="bi bi-bell me-2"></i>Alerts
           </a>
           <?php if ($role === 'DA_SUPER_ADMIN'): ?>
-          <a class="nav-link mb-1 <?php echo ($view === 'logs') ? 'active text-white' : ''; ?>" href="notification.php?view=logs">
+          <a class="nav-link mb-1 <?php echo ($view === 'logs') ? 'active text-white' : ''; ?>" href="<?php echo $pageUrl('da/notification'); ?>?view=logs">
             <i class="bi bi-journal-text me-2"></i>Activity Log
           </a>
           <?php endif; ?>
           <hr>
-          <a class="nav-link mb-1" href="index.php"><i class="bi bi-speedometer2 me-2"></i>Dashboard</a>
-          <a class="nav-link mb-1" href="announcements.php"><i class="bi bi-megaphone me-2"></i>Announcements</a>
-          <a class="nav-link mb-1" href="users.php"><i class="bi bi-people me-2"></i>User Management</a>
+          <a class="nav-link mb-1" href="<?php echo $pageUrl('da/'); ?>"><i class="bi bi-speedometer2 me-2"></i>Dashboard</a>
+          <a class="nav-link mb-1" href="<?php echo $pageUrl('da/announcements'); ?>"><i class="bi bi-megaphone me-2"></i>Announcements</a>
+          <a class="nav-link mb-1" href="<?php echo $pageUrl('da/users'); ?>"><i class="bi bi-people me-2"></i>User Management</a>
         </nav>
       </div>
     </aside>
@@ -170,8 +189,8 @@ include '../includes/universal_header.php';
               <div class="dropdown">
                   <button class="btn btn-sm btn-light rounded-circle border" data-bs-toggle="dropdown"><i class="bi bi-three-dots"></i></button>
                   <ul class="dropdown-menu dropdown-menu-end">
-                      <li><a class="dropdown-item" href="../action/Notification/mark_all_read.php"><i class="bi bi-check-all me-2"></i>Mark all as read</a></li>
-                      <li><a class="dropdown-item text-danger" href="../action/Notification/clear_all.php" onclick="return confirm('Clear all notifications?')"><i class="bi bi-trash3-fill me-2"></i>Clear all</a></li>
+                      <li><a class="dropdown-item" href="<?php echo dfps_helper_url('action/Notification/mark_all_read.php'); ?>"><i class="bi bi-check-all me-2"></i>Mark all as read</a></li>
+                      <li><a class="dropdown-item text-danger" href="<?php echo dfps_helper_url('action/Notification/clear_all.php'); ?>" onclick="return confirm('Clear all notifications?')"><i class="bi bi-trash3-fill me-2"></i>Clear all</a></li>
                   </ul>
               </div>
             </div>
@@ -185,9 +204,13 @@ include '../includes/universal_header.php';
               <?php else: ?>
                 <?php foreach ($notifications as $notif): 
                     if ($notif['type'] === 'NEW_MESSAGE') continue;
-                    $view_link = !empty($notif['link']) ? '../action/Notification/mark_read.php?id=' . $notif['id'] . '&redirect=' . urlencode($notif['link']) : '#';
+                    $view_link = !empty($notif['link']) ? dfps_helper_url('action/Notification/mark_read.php') . '?id=' . $notif['id'] . '&redirect=' . urlencode($notif['link']) : '#';
                 ?>
-                    <div class="notification-item <?php echo !$notif['is_read'] ? 'notification-unread' : ''; ?>" data-id="<?php echo $notif['id']; ?>">
+                    <div class="notification-item <?php echo !$notif['is_read'] ? 'notification-unread' : ''; ?> clickable" 
+                         data-id="<?php echo $notif['id']; ?>"
+                         data-title="<?php echo htmlspecialchars($notif['title']); ?>"
+                         data-body="<?php echo htmlspecialchars($notif['body']); ?>"
+                         data-link="<?php echo !empty($notif['link']) ? $view_link : ''; ?>">
                         <div class="notification-icon">
                             <i class="bi <?php echo get_notification_icon($notif['type']); ?>"></i>
                         </div>
@@ -198,7 +221,7 @@ include '../includes/universal_header.php';
                         </div>
                         <div class="notification-actions">
                             <a href="<?php echo $view_link; ?>" class="btn btn-sm btn-primary <?php echo empty($notif['link']) ? 'disabled' : ''; ?>">View</a>
-                            <a href="../action/Notification/dismiss.php?id=<?php echo $notif['id']; ?>" class="btn btn-sm btn-outline-secondary" title="Dismiss"><i class="bi bi-x"></i></a>
+                            <a href="<?php echo dfps_helper_url('action/Notification/dismiss.php'); ?>?id=<?php echo $notif['id']; ?>" class="btn btn-sm btn-outline-secondary" title="Dismiss"><i class="bi bi-x"></i></a>
                         </div>
                     </div>
                 <?php endforeach; ?>
@@ -213,3 +236,19 @@ include '../includes/universal_header.php';
 </main>
 
 <?php include '../includes/universal_footer.php'; ?>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Clear the notification badge instantly when viewing alerts
+        <?php if ($view === 'notifications'): ?>
+        if (typeof updateNotificationBadge === 'function') {
+            updateNotificationBadge();
+        } else {
+            const bellLinks = document.querySelectorAll('.header-item[href*="notification.php"], .sidebar-link[href*="notification.php"]');
+            bellLinks.forEach(link => {
+                const badge = link.querySelector('.badge');
+                if (badge) badge.style.display = 'none';
+            });
+        }
+        <?php endif; ?>
+    });
+</script>

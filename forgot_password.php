@@ -1,6 +1,15 @@
 <?php
 include 'includes/db.php';
 
+$appUrl = static function (string $path = ''): string {
+    if (function_exists('dfps_url')) {
+        return dfps_url($path);
+    }
+
+    $normalized = trim(str_replace('\\', '/', $path), '/');
+    return $normalized === '' ? '/' : '/' . $normalized;
+};
+
 $error_message = '';
 $success_message = '';
 
@@ -33,7 +42,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 // Prepare the email
                 $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http";
                 $host = $_SERVER['HTTP_HOST'];
-                $reset_link = "$protocol://$host" . dirname($_SERVER['SCRIPT_NAME']) . "/reset_password.php?token=$token";
+                $reset_link = $protocol . '://' . $host . $appUrl('reset_password') . '?token=' . urlencode($token);
 
                 // --- PHPMailer Implementation ---
                 require 'phpmailer/Exception.php';
@@ -119,7 +128,7 @@ include 'includes/universal_header.php';
                     <?php endif; ?>
 
                     <?php if (!$success_message || strpos($success_message, 'Local Dev Mode') !== false): ?>
-                    <form action="forgot_password.php" method="POST">
+                    <form action="<?php echo $appUrl('forgot_password'); ?>" method="POST">
                         <div class="mb-3">
                             <label for="email" class="form-label">Email address</label>
                             <input type="email" class="form-control form-control-lg" id="email" name="email" placeholder="name@example.com" required>
@@ -131,7 +140,7 @@ include 'includes/universal_header.php';
                     <?php endif; ?>
                     
                     <div class="mt-4 text-center">
-                        <a href="login.php" class="text-decoration-none"><i class="bi bi-arrow-left"></i> Back to Login</a>
+                        <a href="<?php echo $appUrl('login'); ?>" class="text-decoration-none"><i class="bi bi-arrow-left"></i> Back to Login</a>
                     </div>
                 </div>
             </div>

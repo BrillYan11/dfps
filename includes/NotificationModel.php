@@ -78,17 +78,18 @@ class NotificationModel {
     }
     
     /**
-     * Marks notifications as read by link and user_id.
+     * Marks notifications as read by link and user_id using a flexible LIKE match.
      *
      * @param mysqli $conn
      * @param int $user_id
-     * @param string $link
+     * @param string $link_pattern
      * @return bool
      */
-    public static function markAsReadByLink(mysqli $conn, int $user_id, string $link): bool {
-        $sql = "UPDATE notifications SET is_read = 1 WHERE user_id = ? AND link = ? AND is_read = 0";
+    public static function markAsReadByLink(mysqli $conn, int $user_id, string $link_pattern): bool {
+        $pattern = "%" . $link_pattern . "%";
+        $sql = "UPDATE notifications SET is_read = 1 WHERE user_id = ? AND link LIKE ? AND is_read = 0";
         $stmt = $conn->prepare($sql);
-        $stmt->bind_param("is", $user_id, $link);
+        $stmt->bind_param("is", $user_id, $pattern);
         $success = $stmt->execute();
         $stmt->close();
         return $success;
@@ -142,6 +143,6 @@ class NotificationModel {
         $result = $stmt->get_result();
         $row = $result->fetch_assoc();
         $stmt->close();
-        return $row['unread_count'] ?? 0;
+        return (int)($row['unread_count'] ?? 0);
     }
 }

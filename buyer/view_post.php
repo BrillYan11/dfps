@@ -4,12 +4,13 @@ include '../includes/db.php';
 include '../includes/NotificationModel.php'; // Include the NotificationModel
 
 // Authentication and Authorization Check
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'BUYER') {
+if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['BUYER', 'FARMER'])) {
     header("Location: ../login.php");
     exit;
 }
 
-$buyer_id = $_SESSION['user_id'];
+$current_user_id = $_SESSION['user_id'];
+$role = $_SESSION['role'];
 $post_id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
 
 if (!$post_id) {
@@ -51,10 +52,10 @@ if (!$post) {
 // Handle "Express Interest" action
 $interest_error = '';
 $interest_success = '';
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['express_interest'])) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['express_interest']) && $role === 'BUYER') {
     // Check if already interested
     $check_stmt = $conn->prepare("SELECT id FROM post_interests WHERE post_id = ? AND buyer_id = ?");
-    $check_stmt->bind_param("ii", $post_id, $buyer_id);
+    $check_stmt->bind_param("ii", $post_id, $current_user_id);
     $check_stmt->execute();
     if ($check_stmt->get_result()->num_rows > 0) {
         $interest_error = "You have already expressed interest in this product.";
@@ -63,7 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['express_interest'])) 
         try {
             // Insert interest into the database
             $insert_stmt = $conn->prepare("INSERT INTO post_interests (post_id, buyer_id) VALUES (?, ?)");
-            $insert_stmt->bind_param("ii", $post_id, $buyer_id);
+            $insert_stmt->bind_param("ii", $post_id, $current_user_id);
             if (!$insert_stmt->execute()) {
                 throw new Exception("Failed to record interest.");
             }
@@ -71,7 +72,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['express_interest'])) 
 
             // --- Create a notification for the farmer ---
             $buyer_info_stmt = $conn->prepare("SELECT first_name, last_name FROM users WHERE id = ?");
-            $buyer_info_stmt->bind_param("i", $buyer_id);
+            $buyer_info_stmt->bind_param("i", $current_user_id);
             $buyer_info_stmt->execute();
             $buyer_info_result = $buyer_info_stmt->get_result()->fetch_assoc();
             $buyer_name = $buyer_info_result['first_name'] . ' ' . $buyer_info_result['last_name'];
@@ -185,14 +186,23 @@ include '../includes/universal_header.php';
                     </table>
 
                     <div class="d-grid gap-2 mt-4">
-                        <form method="POST" action="view_post.php?id=<?php echo $post_id; ?>">
-                            <button type="submit" name="express_interest" class="btn btn-primary btn-lg w-100">
-                                <i class="bi bi-heart-fill"></i> Express Interest
-                            </button>
-                        </form>
-                        <a href="message.php?receiver_id=<?php echo $post['farmer_id']; ?>&post_id=<?php echo $post_id; ?>" class="btn btn-outline-secondary btn-lg w-100">
-                            <i class="bi bi-chat-dots-fill"></i> Send a Message
-                        </a>
+                        <?php if ($role === 'BUYER'): ?>
+                            <form method="POST" action="view_post.php?id=<?php echo $post_id; ?>">
+                                <button type="submit" name="express_interest" class="btn btn-primary btn-lg w-100">
+                                    <i class="bi bi-heart-fill"></i> Express Interest
+                                </button>
+                            </form>
+                        <?php endif; ?>
+
+                        <?php if ($current_user_id != $post['farmer_id']): ?>
+                            <a href="message.php?receiver_id=<?php echo $post['farmer_id']; ?>&post_id=<?php echo $post_id; ?>" class="btn btn-outline-secondary btn-lg w-100">
+                                <i class="bi bi-chat-dots-fill"></i> Send a Message
+                            </a>
+                        <?php else: ?>
+                            <div class="alert alert-light border text-center py-2 mb-0">
+                                <small class="text-muted"><i class="bi bi-info-circle me-1"></i> This is your own post.</small>
+                            </div>
+                        <?php endif; ?>
                     </div>
 
                 </div>

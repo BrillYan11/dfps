@@ -1,0 +1,561 @@
+DFPS SYSTEM OVERVIEW
+
+1. System Purpose
+
+DFPS stands for Digital Farming Platform System. It is a PHP + MySQL web application that connects three main actors:
+
+- Farmers: create and manage produce listings.
+- Buyers: browse listings, express interest, and message farmers.
+- Department of Agriculture (DA) users: monitor users, listings, prices, announcements, reports, and broadcasts.
+
+The project also includes a small Node.js SMS gateway under the sms/ folder so DA users can send text messages through a GSM modem.
+
+
+2. High-Level Architecture
+
+The system is organized as a classic server-rendered PHP application.
+
+- Root pages:
+  - index.php: public landing page
+  - login.php / register.php / logout.php: authentication
+  - forgot_password.php / reset_password.php: password recovery
+
+- Role areas:
+  - farmer/: farmer dashboard, listing management, messaging, notifications, interests
+  - buyer/: marketplace browsing, product view, messaging, notifications
+  - da/: administration, analytics, announcements, reports, produce/SRP management, user management, backup
+
+- Shared backend:
+  - includes/db.php: MySQL connection bootstrap
+  - includes/NotificationModel.php: notification insert/read/update/delete logic
+  - includes/SMSModel.php: PHP client for the local Node SMS server
+  - includes/Logger.php: system audit log writes
+  - includes/EncryptionUtil.php: message encryption/decryption helper
+
+- Backend action endpoints:
+  - action/Message/: chat archive/delete/unread polling helpers
+  - action/Notification/: notification unread/polling helpers
+  - action/DA/: DA broadcast and SMS-related actions
+
+- Frontend assets:
+  - css/, js/, bootstrap/, modal/, pic/
+
+
+3. Runtime Request Model
+
+The request flow is straightforward:
+
+1. Browser sends an HTTP request to a PHP page or action endpoint.
+2. The PHP script includes includes/db.php to open a mysqli connection to database dfps.
+3. Session state decides whether the user is public, buyer, farmer, DA, or DA_SUPER_ADMIN.
+4. The page executes SQL queries directly with mysqli prepared statements in most write/login paths.
+5. HTML is rendered server-side and sent back to the browser.
+6. Some screens use fetch/AJAX for live updates, especially:
+   - product filtering and pagination
+   - unread counts
+   - new notifications/messages
+   - DA dispatch actions
+
+
+4. Authentication and Authorization Flow
+
+Registration
+- register.php accepts personal info, address, barangay, email, phone, password, role, and city.
+- It inserts the city into areas if missing, reads the matching area_id, hashes the password, and inserts a new row into users.
+- Public registration only allows BUYER and FARMER roles.
+
+Login
+- login.php reads a user from users by email where is_active = 1.
+- Passwords are verified with password_verify against password_hash.
+- On success, PHP session variables user_id and role are stored.
+- Role-based redirect:
+  - FARMER -> farmer/index.php
+  - BUYER -> buyer/index.php
+  - DA and DA_SUPER_ADMIN -> da/index.php
+
+Password reset
+- forgot_password.php generates reset_token and token_expires in users.
+- A reset link is emailed using PHPMailer.
+- reset_password.php validates the token and expiry, then updates password_hash and clears the token fields.
+
+Authorization
+- Most role pages check $_SESSION['user_id'] and $_SESSION['role'] before continuing.
+- DA-only admin functions usually allow both DA and DA_SUPER_ADMIN.
+- Backup/restore is restricted to DA_SUPER_ADMIN.
+
+
+5. Database / SQL Overview
+
+5.1 General Notes
+
+- Database name: dfps
+- Connection file: includes/db.php
+- Driver style: mysqli
+- Charset: utf8mb4
+
+This codebase does not keep one central schema.sql file for the full database. Instead, the schema is inferred from:
+
+- includes/db.php
+- update_db.php
+- page-level SQL queries
+- backup generation in da/backup.php
+
+That means the database structure is partly code-first and partly self-healing at runtime.
+
+
+5.2 Schema Self-Healing
+
+includes/db.php runs automatic checks on page load and adds missing columns if needed:
+
+- conversation_participants.is_archived
+- messages.is_deleted
+- produce.srp
+- users.reset_token
+- users.token_expires
+- users.barangay
+
+update_db.php adds or ensures:
+
+- users.profile_picture
+- users.bio
+- users.additional_details
+- users.reset_token
+- users.token_expires
+- users.barangay
+- messages.iv
+- areas table
+- system_logs table
+- wider users.role column for DA_SUPER_ADMIN
+
+Important implication:
+- Opening the app can modify the schema automatically.
+- Database structure is not purely migration-driven.
+- Production changes must be reviewed carefully because schema updates happen during normal page execution.
+
+
+5.3 Main Tables and Their Roles
+
+Below is the effective data model inferred from the code.
+
+users
+- Core identity table.
+- Stores account, role, contact, profile, password, status, and reset data.
+- Frequently used columns include:
+  - id
+  - first_name
+  - last_name
+  - username
+  - email
+  - phone
+  - address
+  - barangay
+  - password_hash
+  - role
+  - area_id
+  - is_active
+  - created_at
+  - profile_picture
+  - bio
+  - additional_details
+  - reset_token
+  - token_expires
+
+areas
+- Lookup table for cities/municipalities or operating areas.
+- Linked from users.area_id, posts.area_id, and announcements.area_id.
+
+produce
+- Master list of produce types.
+- Also stores default unit and SRP reference value.
+- Used for dropdowns, reporting, and DA price monitoring.
+- Important fields visible in code:
+  - id
+  - name
+  - unit
+  - srp
+  - is_active
+
+posts
+- Main marketplace listing table created by farmers.
+- Represents an offer/listing, not a completed order.
+- Important fields visible in code:
+  - id
+  - farmer_id
+  - produce_id
+  - title
+  - description
+  - price
+  - quantity
+  - unit
+  - area_id
+  - status
+  - created_at
+
+post_images
+- Stores one-to-many image records for posts.
+- Typical fields:
+  - id
+  - post_id
+  - file_path
+
+post_interests
+- Stores buyer interest in a farmer post.
+- Used to prevent duplicate "Express Interest" actions and notify the farmer.
+- Typical fields:
+  - id
+  - post_id
+  - buyer_id
+
+announcements
+- DA announcements, either global or area-specific.
+- Shown on buyer/farmer dashboards and also converted into notifications.
+- Typical fields:
+  - id
+  - da_id
+  - area_id
+  - title
+  - body
+  - created_at
+
+notifications
+- Generic notification inbox for all users.
+- Used for announcements, interest alerts, messages, and system alerts.
+- Important fields visible in code:
+  - id
+  - user_id
+  - type
+  - title
+  - body
+  - link
+  - is_read
+  - created_at
+
+conversations
+- Conversation container for direct messages.
+- New rows are created when two users chat for the first time.
+
+conversation_participants
+- Join table between users and conversations.
+- Tracks which users belong to a conversation.
+- Also tracks soft archive state per participant through is_archived.
+
+messages
+- Chat message table.
+- Stores conversation_id, sender_id, body, created_at, read_at, and soft-delete state.
+- Newer code encrypts body through EncryptionUtil before insert.
+- A migration also references an iv column, although current encryption stores IV and ciphertext together as base64 in body.
+
+system_logs
+- Audit/event table for admin-sensitive actions.
+- Used by Logger.php.
+- Current code logs backup/restore events.
+
+
+5.4 Main Relationships
+
+- users.area_id -> areas.id
+- posts.farmer_id -> users.id
+- posts.produce_id -> produce.id
+- posts.area_id -> areas.id
+- post_images.post_id -> posts.id
+- post_interests.post_id -> posts.id
+- post_interests.buyer_id -> users.id
+- announcements.da_id -> users.id
+- announcements.area_id -> areas.id
+- notifications.user_id -> users.id
+- conversation_participants.conversation_id -> conversations.id
+- conversation_participants.user_id -> users.id
+- messages.conversation_id -> conversations.id
+- messages.sender_id -> users.id
+- system_logs.user_id -> users.id
+
+
+5.5 SQL Usage Patterns
+
+The system mixes:
+
+- prepared statements for most authentication and writes
+- direct string-built queries in some reporting/filtering/admin pages
+- aggregate SQL for analytics and reports
+- transactional SQL for operations that span multiple tables
+
+Common SQL patterns used:
+
+- INSERT for users, posts, messages, notifications, interests, announcements, logs
+- SELECT with JOIN for listing screens, dashboards, and reports
+- UPDATE for marking messages/notifications read, profile edits, password reset, archive state
+- DELETE for announcements and notifications
+- ALTER TABLE / SHOW COLUMNS for self-healing schema changes
+- SHOW TABLES / SHOW CREATE TABLE for backup generation
+
+
+6. Dataflow by Major Feature
+
+6.1 Registration Dataflow
+
+1. User fills register.php.
+2. Browser submits form to register.php.
+3. PHP validates required fields and checks terms agreement.
+4. City name is inserted into areas if needed.
+5. area_id is read from areas.
+6. Password is hashed.
+7. A new row is inserted into users.
+8. User is told to log in.
+
+Main tables involved:
+- areas
+- users
+
+
+6.2 Login Dataflow
+
+1. User submits email and password to login.php.
+2. PHP selects active user from users.
+3. password_verify checks password_hash.
+4. Session values are stored.
+5. User is redirected to the correct role dashboard.
+
+Main table involved:
+- users
+
+
+6.3 Farmer Listing Creation Dataflow
+
+1. Farmer opens farmer/add_post.php.
+2. PHP loads active produce rows from produce and farmer area data from users + areas.
+3. Farmer submits listing form and optional image.
+4. PHP uploads the image file into uploads/.
+5. Transaction begins.
+6. A row is inserted into posts.
+7. If an image exists, a row is inserted into post_images.
+8. Transaction commits.
+9. Farmer is redirected back to their dashboard.
+
+Main tables involved:
+- users
+- areas
+- produce
+- posts
+- post_images
+
+Filesystem involved:
+- uploads/
+
+
+6.4 Buyer Marketplace Browse Dataflow
+
+1. Buyer opens buyer/index.php.
+2. PHP loads active posts joined with produce, users, and areas.
+3. First image per post is fetched from post_images via subquery.
+4. Filters/search can be applied.
+5. AJAX requests go to buyer/get_posts.php for live updates and pagination.
+
+Main tables involved:
+- posts
+- produce
+- users
+- areas
+- post_images
+
+
+6.5 Express Interest Dataflow
+
+1. Buyer opens buyer/view_post.php?id=...
+2. PHP loads the target post, produce, farmer, and area details.
+3. Buyer clicks "Express Interest".
+4. PHP checks post_interests for duplicates.
+5. Transaction begins.
+6. A row is inserted into post_interests.
+7. Buyer name is read from users.
+8. A notification row is inserted for the farmer through NotificationModel.
+9. Transaction commits.
+
+Main tables involved:
+- posts
+- post_interests
+- users
+- notifications
+
+
+6.6 Messaging Dataflow
+
+Conversation bootstrap
+1. Buyer or farmer opens message.php with receiver_id.
+2. PHP checks whether both users already share a conversation using conversation_participants.
+3. If not found, a new row is inserted into conversations.
+4. Two rows are inserted into conversation_participants, one per user.
+
+Send message
+1. User submits message text.
+2. PHP verifies the other participant from conversation_participants.
+3. Message text is encrypted using EncryptionUtil.
+4. A row is inserted into messages.
+5. A NEW_MESSAGE notification is inserted for the receiver.
+6. conversation_participants.is_archived is reset to 0 for both sides.
+
+Read message
+1. Opening a conversation updates messages.read_at for unread incoming rows.
+2. Matching notifications are marked read through NotificationModel::markAsReadByLink.
+3. Messages are selected, then decrypted before rendering.
+
+Archive/delete behavior
+- Archive is per participant using conversation_participants.is_archived.
+- Message delete is soft delete using messages.is_deleted.
+
+Main tables involved:
+- conversations
+- conversation_participants
+- messages
+- notifications
+- users
+
+
+6.7 Notification Dataflow
+
+Notifications are used as a generic event bus for the UI.
+
+Creation sources observed in code:
+- buyer interest in a post
+- direct messages
+- DA announcements
+- DA manual system alert dispatch
+
+Read/update behavior:
+- Notification pages and action/Notification endpoints load unread counts and recent items.
+- mark_read / mark_all_read update is_read.
+- dismiss / clear_all remove rows.
+
+Main table involved:
+- notifications
+
+
+6.8 Announcement Dataflow
+
+1. DA user submits announcement title/body and optional area_id in da/announcements.php.
+2. PHP inserts a row into announcements.
+3. PHP selects target users:
+   - all non-DA users, or
+   - only users in the chosen area
+4. A notification row is inserted for each target user.
+5. Buyer and farmer dashboards read the latest relevant announcements using their area_id.
+
+Main tables involved:
+- announcements
+- users
+- areas
+- notifications
+
+
+6.9 DA Analytics and Reports Dataflow
+
+The DA dashboard and reports pages are read-heavy SQL views over transactional data.
+
+Examples:
+- users grouped by role
+- posts grouped by status
+- average active post prices compared against produce.srp
+- top areas by user count
+- top produce by number of listings
+
+Reports combine:
+- users + areas
+- posts + produce + users + areas
+- produce + posts for price analysis
+
+Main tables involved:
+- users
+- areas
+- posts
+- produce
+
+
+6.10 Backup and Restore Dataflow
+
+Backup
+1. DA_SUPER_ADMIN requests backup download.
+2. PHP reads all table names with SHOW TABLES.
+3. For each table, PHP reads CREATE TABLE SQL and all row data.
+4. A .sql file is assembled in memory and downloaded.
+5. Action is logged into system_logs.
+
+Restore
+1. DA_SUPER_ADMIN uploads a .sql file.
+2. PHP reads the file content.
+3. mysqli::multi_query executes the SQL.
+4. Success or failure is logged into system_logs.
+
+Main tables involved:
+- all tables
+- system_logs
+
+
+6.11 SMS Broadcast Dataflow
+
+1. DA action endpoint receives a dispatch request.
+2. If dispatch_type = system_alert:
+   - PHP inserts a notification into notifications.
+3. If dispatch_type = sim_sms:
+   - PHP calls includes/SMSModel.php.
+4. SMSModel sends JSON to http://localhost:3001/send-sms.
+5. The Node.js server in sms/sms_server.js communicates with the GSM modem over serial.
+6. Result is returned to PHP, then back to the browser as JSON.
+
+Main data stores involved:
+- notifications for in-app alerts
+- users for phone numbers
+
+External/local service involved:
+- sms/sms_server.js
+
+
+7. Security and Data Handling Notes
+
+Observed strengths
+- Passwords are hashed.
+- Many important writes use prepared statements.
+- Message bodies are encrypted before storage when EncryptionUtil is configured.
+- Role checks are present on most protected pages.
+
+Observed risks / architectural cautions
+- includes/db.php performs schema changes during normal page loads.
+- Some pages still build SQL using concatenated strings, especially reporting/filter conditions.
+- forgot_password.php currently contains SMTP credentials in source code and should be moved to environment configuration.
+- EncryptionUtil falls back to plaintext if the encryption key is not configured.
+- Backup restore runs uploaded SQL directly through multi_query, which is powerful but high risk if misused.
+
+
+8. Practical System Summary
+
+In practical terms, DFPS works like this:
+
+- users is the central identity table.
+- areas and produce are lookup/reference tables.
+- posts is the core marketplace table.
+- post_images and post_interests extend listing behavior.
+- conversations, conversation_participants, and messages implement private chat.
+- notifications is the shared event/alert layer used across features.
+- announcements is the DA publishing layer.
+- system_logs records sensitive admin actions.
+- The Node SMS service is an optional sidecar for real-world text broadcast.
+
+So the main business dataflow is:
+
+user account -> role dashboard -> listing/announcement/message action -> SQL write -> optional notification/SMS -> updated dashboard/report output
+
+
+9. Suggested Reading Order for Maintainers
+
+If someone wants to understand the project quickly, read these files in this order:
+
+1. includes/db.php
+2. login.php
+3. register.php
+4. buyer/index.php and buyer/view_post.php
+5. farmer/add_post.php and farmer/index.php
+6. buyer/message.php or farmer/message.php
+7. includes/NotificationModel.php
+8. da/index.php
+9. da/announcements.php
+10. da/reports.php
+11. da/backup.php
+12. includes/SMSModel.php and sms/sms_server.js

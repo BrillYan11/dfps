@@ -1,9 +1,10 @@
 <?php
 session_start();
 include '../../includes/db.php';
+require_once '../../includes/url_helpers.php';
 
 if (!isset($_SESSION['user_id'])) {
-    header("Location: ../../login.php");
+    header("Location: " . dfps_helper_url('login'));
     exit;
 }
 
@@ -24,6 +25,6 @@ if ($conv_id) {
 }
 
 // Redirect back to message.php
-$redirect_path = ($role === 'FARMER') ? '../../farmer/message.php' : '../../buyer/message.php';
+$redirect_path = (in_array($role, ['DA', 'DA_SUPER_ADMIN'])) ? dfps_helper_url('da/message') : ((strtoupper($role) === 'FARMER') ? dfps_helper_url('farmer/message') : dfps_helper_url('buyer/message'));
 header("Location: " . $redirect_path);
 exit;

@@ -1,0 +1,32 @@
+name: CI - PHP Lint & Security
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.2'
+        extensions: mysqli, mbstring, intl, curl, json
+        coverage: none
+
+    - name: Validate PHP Syntax (Lint)
+      run: |
+        find . -name "*.php" -not -path "./vendor/*" -exec php -l {} \; | grep -v "No syntax errors detected" && exit 1 || exit 0
+
+    - name: Run Security Check (Local)
+      uses: symfonycorp/security-checker-action@v5
+      continue-on-error: true # Since there's no composer.lock yet, this might fail, but let's keep it for future use.
+
+    - name: PHP Static Analysis (Optional - suggest adding PHPStan)
+      run: echo "Static analysis can be added here once a composer.json is present."

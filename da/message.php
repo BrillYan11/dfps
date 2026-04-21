@@ -2,6 +2,9 @@
 session_start();
 include '../includes/db.php';
 include '../includes/NotificationModel.php';
+include_once '../includes/EncryptionUtil.php';
+
+EncryptionUtil::init();
 
 if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['DA', 'DA_SUPER_ADMIN'])) {
     header("Location: ../login.php");
@@ -21,8 +24,8 @@ if ($selected_conv_id) {
     $read_stmt->close();
 
     // Mark corresponding notifications as read
-    $notif_link = "message.php?conv_id=" . $selected_conv_id;
-    NotificationModel::markAsReadByLink($conn, $da_id, $notif_link);
+    $notif_link_pattern = "message.php?conv_id=" . $selected_conv_id;
+    NotificationModel::markAsReadByLink($conn, $da_id, $notif_link_pattern);
 }
 
 // --- Handle receiver_id to find or create conversation ---
@@ -65,8 +68,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty(trim($_POST['message_body'])
         $result = $verify_stmt->get_result();
         if ($result->num_rows > 0) {
             $actual_receiver_id = $result->fetch_assoc()['user_id'];
+            $encrypted_message_body = EncryptionUtil::encrypt($message_body);
             $msg_stmt = $conn->prepare("INSERT INTO messages (conversation_id, sender_id, body) VALUES (?, ?, ?)");
-            $msg_stmt->bind_param("iis", $selected_conv_id, $da_id, $message_body);
+            $msg_stmt->bind_param("iis", $selected_conv_id, $da_id, $encrypted_message_body);
             $msg_stmt->execute();
             $msg_stmt->close();
 
@@ -79,7 +83,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty(trim($_POST['message_body'])
             
             $notif_title = "New Message from DA Portal";
             $notif_body = "Sent you a message.";
-            $notif_link = ($r_role === 'FARMER' ? "../farmer/message.php" : "../buyer/message.php") . "?conv_id=" . $selected_conv_id;
+            $notif_link = ($r_role === 'FARMER' ? "farmer/message.php" : "buyer/message.php") . "?conv_id=" . $selected_conv_id;
             NotificationModel::createNotification($conn, $actual_receiver_id, 'NEW_MESSAGE', $notif_title, $notif_body, $notif_link);
 
             $conn->query("UPDATE conversation_participants SET is_archived = 0 WHERE conversation_id = $selected_conv_id");
@@ -120,7 +124,10 @@ $conv_stmt = $conn->prepare($conv_query);
 $conv_stmt->bind_param("iiii", $da_id, $da_id, $da_id, $is_archived_filter);
 $conv_stmt->execute();
 $conv_result = $conv_stmt->get_result();
-while ($row = $conv_result->fetch_assoc()) { $conversations[] = $row; }
+while ($row = $conv_result->fetch_assoc()) { 
+    $row['last_message'] = EncryptionUtil::decrypt($row['last_message']);
+    $conversations[] = $row; 
+}
 $conv_stmt->close();
 
 // --- Fetch selected message details ---
@@ -145,6 +152,12 @@ if ($selected_conv_id) {
         $msg_stmt->execute();
         $messages = $msg_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
         $msg_stmt->close();
+
+        // Decrypt message bodies
+        $messages = array_map(function($msg) {
+            $msg['body'] = EncryptionUtil::decrypt($msg['body']);
+            return $msg;
+        }, $messages);
     }
 }
 

@@ -342,24 +342,6 @@ include '../includes/universal_header.php';
                 <form id="individualSmsForm">
                     <input type="hidden" name="user_id" id="smsUserId">
                     
-                    <div class="mb-3 p-3 bg-light rounded-3 border">
-                        <h6 class="fw-bold mb-3 text-secondary small"><i class="bi bi-gear-fill me-2"></i>GSM Hardware Configuration</h6>
-                        <div class="row g-2">
-                            <div class="col-md-7">
-                                <label class="form-label small fw-bold">Device Port</label>
-                                <input type="text" name="gsm_device" class="form-control form-control-sm rounded-3" value="COM3">
-                            </div>
-                            <div class="col-md-5">
-                                <label class="form-label small fw-bold">Baud Rate</label>
-                                <select name="gsm_baud" class="form-select form-select-sm rounded-3">
-                                    <option value="9600" selected>9600</option>
-                                    <option value="19200">19200</option>
-                                    <option value="115200">115200</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-
                     <div class="mb-4">
                         <label class="form-label fw-bold">SMS Message Content</label>
                         <textarea name="message" class="form-control rounded-3 border-2 shadow-none" rows="4" placeholder="Type your message here..." required></textarea>
@@ -431,7 +413,14 @@ include '../includes/universal_header.php';
 
         // Character counter
         messageArea.addEventListener('input', () => {
-            charCount.textContent = `${messageArea.value.length} characters`;
+            const length = messageArea.value.length;
+            charCount.textContent = `${length} characters`;
+            if (length > 160) {
+                charCount.classList.add('text-danger', 'fw-bold');
+                charCount.textContent += ' (Will be split into multiple SMS)';
+            } else {
+                charCount.classList.remove('text-danger', 'fw-bold');
+            }
         });
 
         // Delegate listener for Send SMS buttons

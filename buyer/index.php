@@ -3,7 +3,7 @@ session_start();
 include '../includes/db.php'; // Correct path to db.php
 
 // 1. Authentication and Authorization Check
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'BUYER') {
+if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['BUYER', 'FARMER'])) {
     header("Location: ../login.php");
     exit;
 }
@@ -143,7 +143,7 @@ include '../includes/universal_header.php';
                       </div>
                   <?php endforeach; ?>
               <?php endif; ?>
-              <a href="#" class="btn btn-sm btn-link p-0 text-decoration-none">View All Announcements</a>
+              <a href="announcements.php" class="btn btn-sm btn-link p-0 text-decoration-none">View All Announcements</a>
           </div>
         </div>
       </aside>

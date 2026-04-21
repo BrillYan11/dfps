@@ -1,13 +1,23 @@
 <?php
 // includes/db.php
 
-$servername = "localhost";
-$username = "root";
-$password = "";
-$dbname = "dfps";
+$servername = getenv('DB_HOST') ?: "localhost";
+$username = getenv('DB_USER') ?: "root";
+$password = getenv('DB_PASS') ?: "";
+$dbname = getenv('DB_NAME') ?: "dfps";
+$port = getenv('DB_PORT') ?: 3306;
 
-// Create connection
-$conn = new mysqli($servername, $username, $password, $dbname);
+// Initialize mysqli
+$conn = mysqli_init();
+
+// Use SSL if connecting to a remote host (like Aiven)
+if (getenv('DB_HOST') && getenv('DB_HOST') !== 'localhost' && getenv('DB_HOST') !== 'db') {
+    mysqli_ssl_set($conn, NULL, NULL, NULL, NULL, NULL);
+    $conn->real_connect($servername, $username, $password, $dbname, $port, NULL, MYSQLI_CLIENT_SSL);
+} else {
+    // Standard connection for local/docker
+    $conn->real_connect($servername, $username, $password, $dbname, $port);
+}
 
 // Check connection
 if ($conn->connect_error) {
@@ -46,5 +56,11 @@ if ($res->num_rows == 0) {
 $res = $conn->query("SHOW COLUMNS FROM users LIKE 'token_expires'");
 if ($res->num_rows == 0) {
     $conn->query("ALTER TABLE users ADD COLUMN token_expires DATETIME DEFAULT NULL");
+}
+
+// Check for barangay in users
+$res = $conn->query("SHOW COLUMNS FROM users LIKE 'barangay'");
+if ($res->num_rows == 0) {
+    $conn->query("ALTER TABLE users ADD COLUMN barangay VARCHAR(255) DEFAULT NULL");
 }
 ?>

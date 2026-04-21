@@ -1,6 +1,15 @@
 <?php
 include 'includes/db.php';
 
+$appUrl = static function (string $path = ''): string {
+    if (function_exists('dfps_url')) {
+        return dfps_url($path);
+    }
+
+    $normalized = trim(str_replace('\\', '/', $path), '/');
+    return $normalized === '' ? '/' : '/' . $normalized;
+};
+
 $error_message = '';
 $success_message = '';
 
@@ -109,7 +118,7 @@ include 'includes/universal_header.php';
             </script>
         <?php endif; ?>
 
-        <form method="POST" action="register.php">
+        <form method="POST" action="<?php echo $appUrl('register'); ?>">
             <h5 class="form-section-title">Personal Information</h5>
 
             <!-- Last Name & First Name -->
@@ -218,7 +227,7 @@ include 'includes/universal_header.php';
             </div>
 
             <div class="text-center">
-                <p class="mb-0 text-muted">Already have an account? <a href="login.php" class="text-success fw-bold text-decoration-none">Login here</a></p>
+                <p class="mb-0 text-muted">Already have an account? <a href="<?php echo $appUrl('login'); ?>" class="text-success fw-bold text-decoration-none">Login here</a></p>
             </div>
         </form>
     </div>

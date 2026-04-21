@@ -47,9 +47,10 @@
     border-bottom: none;
 }
 
-/* Unread State */
+/* Unread State - Darkened background */
 .notification-unread {
-    background-color: #f0f7ff;
+    background-color: #dbeafe;
+    border-left: 4px solid var(--primary-color);
 }
 
 .notification-unread::before {
@@ -110,6 +111,8 @@
     gap: 6px;
     margin-left: 12px;
     align-self: center;
+    position: relative;
+    z-index: 10;
 }
 
 .notification-actions .btn-sm {

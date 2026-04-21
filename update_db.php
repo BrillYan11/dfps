@@ -2,7 +2,7 @@
 include 'includes/db.php';
 
 // Add profile columns to users table
-$columns = [
+$user_columns = [
     'profile_picture' => "ALTER TABLE users ADD COLUMN profile_picture VARCHAR(255) DEFAULT NULL",
     'bio' => "ALTER TABLE users ADD COLUMN bio TEXT DEFAULT NULL",
     'additional_details' => "ALTER TABLE users ADD COLUMN additional_details TEXT DEFAULT NULL",
@@ -11,45 +11,52 @@ $columns = [
     'barangay' => "ALTER TABLE users ADD COLUMN barangay VARCHAR(255) DEFAULT NULL"
 ];
 
-foreach ($columns as $name => $sql) {
+foreach ($user_columns as $name => $sql) {
     $res = $conn->query("SHOW COLUMNS FROM users LIKE '$name'");
     if ($res->num_rows == 0) {
         if ($conn->query($sql)) {
-            echo "Column '$name' added successfully.<br>";
+            echo "Column '$name' added successfully to 'users'.<br>";
         } else {
-            echo "Error adding column '$name': " . $conn->error . "<br>";
+            echo "Error adding column '$name' to 'users': " . $conn->error . "<br>";
         }
     } else {
-        echo "Column '$name' already exists.<br>";
+        echo "Column '$name' already exists in 'users'.<br>";
     }
 }
 
-// Create tasks table for Gantt chart
-$create_tasks_sql = "
-CREATE TABLE IF NOT EXISTS tasks (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL,
-    task_name VARCHAR(255) NOT NULL,
-    start_date DATE NOT NULL,
-    end_date DATE NOT NULL,
-    progress INT DEFAULT 0,
-    status ENUM('Pending', 'In Progress', 'Completed') DEFAULT 'Pending',
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-)";
-
-if ($conn->query($create_tasks_sql)) {
-    echo "Table 'tasks' created successfully or already exists.<br>";
+// Check for messages table columns
+$res = $conn->query("SHOW COLUMNS FROM messages LIKE 'iv'");
+if ($res->num_rows == 0) {
+    if ($conn->query("ALTER TABLE messages ADD COLUMN iv VARBINARY(16) DEFAULT NULL")) {
+        echo "Column 'iv' added successfully to 'messages'.<br>";
+    } else {
+        echo "Error adding column 'iv' to 'messages': " . $conn->error . "<br>";
+    }
 } else {
-    echo "Error creating table 'tasks': " . $conn->error . "<br>";
+    echo "Column 'iv' already exists in 'messages'.<br>";
 }
 
-// FIX: Ensure the 'role' column can hold 'DA_SUPER_ADMIN' (14 characters)
-// If it was an ENUM or a short VARCHAR, we need to expand it
+// Add areas table if it doesn't exist
+$create_areas_sql = "
+CREATE TABLE IF NOT EXISTS areas (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    area_name VARCHAR(100) NOT NULL UNIQUE,
+    description TEXT DEFAULT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)";
+
+if ($conn->query($create_areas_sql)) {
+    echo "Table 'areas' created successfully or already exists.<br>";
+} else {
+    echo "Error creating table 'areas': " . $conn->error . "<br>";
+}
+
+// Ensure the 'role' column can hold 'DA_SUPER_ADMIN'
 $alter_role_sql = "ALTER TABLE users MODIFY COLUMN role VARCHAR(50) NOT NULL";
 if ($conn->query($alter_role_sql)) {
     echo "Column 'role' updated to VARCHAR(50) to support new role types.<br>";
 } else {
-    echo "Warning: Could not alter 'role' column. This might cause issues if it's an ENUM or too short: " . $conn->error . "<br>";
+    echo "Warning: Could not alter 'role' column: " . $conn->error . "<br>";
 }
 
 // --- NEW: System Logs Table ---
@@ -68,6 +75,29 @@ if ($conn->query($create_logs_sql)) {
     echo "Table 'system_logs' created successfully or already exists.<br>";
 } else {
     echo "Error creating table 'system_logs': " . $conn->error . "<br>";
+}
+
+// --- NEW: Resource Requests Table ---
+$create_resource_requests_sql = "
+CREATE TABLE IF NOT EXISTS resource_requests (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    farmer_id INT NOT NULL,
+    resource_type VARCHAR(255) NOT NULL,
+    quantity INT NOT NULL,
+    description TEXT,
+    status ENUM('pending', 'approved', 'rejected') DEFAULT 'pending',
+    remarks TEXT,
+    processed_by INT,
+    processed_at TIMESTAMP NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (farmer_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (processed_by) REFERENCES users(id) ON DELETE SET NULL
+)";
+
+if ($conn->query($create_resource_requests_sql)) {
+    echo "Table 'resource_requests' created successfully or already exists.<br>";
+} else {
+    echo "Error creating table 'resource_requests': " . $conn->error . "<br>";
 }
 
 // Ensure at least one Super Admin exists
@@ -91,7 +121,8 @@ if ($check_super->num_rows == 0) {
         $stmt = $conn->prepare("INSERT INTO users (first_name, last_name, username, email, address, phone, password_hash, role, area_id, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, 'DA_SUPER_ADMIN', ?, 1)");
         $stmt->bind_param("sssssssi", $sa_first, $sa_last, $sa_user, $sa_email, $sa_address, $sa_phone, $sa_pass_hash, $area_id);
 
-        if ($stmt->execute()) {            echo "<br><strong>SUPER ADMIN CREATED:</strong><br>";
+        if ($stmt->execute()) {
+            echo "<br><strong>SUPER ADMIN CREATED:</strong><br>";
             echo "Email: $sa_email<br>";
             echo "Password: $sa_pass<br>";
             echo "<em>Please change this password after logging in!</em><br>";

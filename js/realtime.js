@@ -3,13 +3,45 @@
 document.addEventListener('DOMContentLoaded', function() {
     const NOTIFICATION_POLL_INTERVAL = 5000; // 5 seconds
     const MESSAGE_POLL_INTERVAL = 3000;      // 3 seconds
+    const appRoot = (window.DFPS_APP_ROOT || '').replace(/\/$/, '');
 
-    // Determine base path (where 'action/' directory is)
-    // If we are in a subfolder like 'buyer/', we need '../'
-    let basePath = '';
-    const path = window.location.pathname;
-    if (path.includes('/buyer/') || path.includes('/farmer/') || path.includes('/da/') || path.includes('/profile/') || path.includes('/header/') || path.includes('/footer/')) {
-        basePath = '../';
+    function appUrl(path) {
+        const rawPath = String(path || '');
+        if (appRoot && rawPath.startsWith(appRoot + '/')) {
+            return rawPath;
+        }
+        if (!appRoot && rawPath.startsWith('/')) {
+            return rawPath;
+        }
+        const cleanPath = rawPath.replace(/^\/+/, '');
+        return (appRoot ? appRoot : '') + '/' + cleanPath;
+    }
+
+    const currentPath = window.location.pathname;
+    const relativePath = appRoot && currentPath.startsWith(appRoot) ? currentPath.slice(appRoot.length) : currentPath;
+    const pathSegments = relativePath.replace(/^\/+/, '').split('/').filter(Boolean);
+    const currentSection = ['buyer', 'farmer', 'da'].includes(pathSegments[0]) ? pathSegments[0] : 'buyer';
+
+    function isSelfNotificationRedirect(href) {
+        if (!href) {
+            return false;
+        }
+
+        try {
+            const url = new URL(href, window.location.origin);
+            const redirect = url.searchParams.get('redirect') || '';
+            const decodedRedirect = decodeURIComponent(redirect).replace(/\\/g, '/').replace(/^(\.\.\/)+/, '').replace(/^\/+/, '');
+
+            if (!decodedRedirect) {
+                return false;
+            }
+
+            return decodedRedirect === 'notification.php' ||
+                decodedRedirect === `${currentSection}/notification.php` ||
+                decodedRedirect === `${currentSection}/notification`;
+        } catch (err) {
+            return false;
+        }
     }
 
     // Poll for System Alerts (Broadcasts) state
@@ -17,15 +49,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Update Notification Badge
     function updateNotificationBadge() {
-        fetch(basePath + 'action/Notification/get_unread_count.php')
+        fetch(appUrl('action/Notification/get_unread_count.php') + '?t=' + new Date().getTime())
             .then(response => {
                 if (!response.ok) throw new Error('Network response was not ok');
                 return response.json();
             })
             .then(data => {
-                const badges = document.querySelectorAll('.header-item.position-relative a[href*="notification.php"] .badge, a.position-relative[href*="notification.php"] .badge');
-                // Target bell icon specifically
-                const bellLinks = document.querySelectorAll('a[href*="notification.php"]');
+                // Target bell icon specifically in header and sidebar
+                const bellLinks = document.querySelectorAll('.header-item[href*="/notification"], .sidebar-link[href*="/notification"]');
                 updateBadgeForElements(bellLinks, data.unread_count);
             })
             .catch(err => console.error('Error fetching notification count:', err));
@@ -33,13 +64,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Update Message Badge
     function updateMessageBadge() {
-        fetch(basePath + 'action/Message/get_unread_count.php')
+        fetch(appUrl('action/Message/get_unread_count.php') + '?t=' + new Date().getTime())
             .then(response => {
                 if (!response.ok) throw new Error('Network response was not ok');
                 return response.json();
             })
             .then(data => {
-                const msgLinks = document.querySelectorAll('a[href*="message.php"]');
+                // Target message icon specifically in header and sidebar
+                const msgLinks = document.querySelectorAll('.header-item[href*="/message"], .sidebar-link[href*="/message"]');
                 updateBadgeForElements(msgLinks, data.unread_count);
             })
             .catch(err => console.error('Error fetching message count:', err));
@@ -77,7 +109,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Poll for System Alerts (Broadcasts)
     function initializeLastNotifId() {
-        fetch(basePath + 'action/Notification/get_new_notifications.php?last_id=0')
+        fetch(appUrl('action/Notification/get_new_notifications.php') + '?last_id=0')
             .then(r => r.json())
             .then(data => {
                 if (data.notifications && data.notifications.length > 0) {
@@ -96,7 +128,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function pollSystemAlerts() {
         if (globalLastNotifId === -1) return; // Wait for initialization
 
-        fetch(basePath + `action/Notification/get_new_notifications.php?last_id=${globalLastNotifId}`)
+        fetch(appUrl('action/Notification/get_new_notifications.php') + `?last_id=${globalLastNotifId}`)
             .then(response => {
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
@@ -141,11 +173,11 @@ document.addEventListener('DOMContentLoaded', function() {
         if (linkEl) {
             if (notif.link && notif.link !== 'javascript:void(0)') {
                 // If it's already a mark_read link, use it. Otherwise wrap it.
-                if (notif.link.includes('mark_read.php')) {
-                    linkEl.href = notif.link;
-                } else {
-                    linkEl.href = basePath + `action/Notification/mark_read.php?id=${notif.id}&redirect=${encodeURIComponent(notif.link)}`;
-                }
+                    if (notif.link.includes('mark_read.php')) {
+                        linkEl.href = notif.link;
+                    } else {
+                        linkEl.href = appUrl('action/Notification/mark_read.php') + `?id=${notif.id}&redirect=${encodeURIComponent(notif.link)}`;
+                    }
                 linkEl.style.display = 'inline-block';
             } else {
                 linkEl.style.display = 'none';
@@ -153,7 +185,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         // Mark as read in background via AJAX
-        fetch(basePath + `action/Notification/mark_read.php?id=${notif.id}`)
+        fetch(appUrl('action/Notification/mark_read.php') + `?id=${notif.id}`)
             .then(() => updateNotificationBadge())
             .catch(err => console.error('Error marking as read:', err));
 
@@ -171,7 +203,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const searchInput = document.getElementById('conv-search');
         const query = searchInput ? searchInput.value : '';
 
-        fetch(basePath + `action/Message/get_conversations.php?view=${view}&q=${encodeURIComponent(query)}`)
+        fetch(appUrl('action/Message/get_conversations.php') + `?view=${view}&q=${encodeURIComponent(query)}`)
             .then(response => {
                 if (!response.ok) throw new Error('Network response was not ok');
                 return response.json();
@@ -212,7 +244,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // Profile Picture or Icon
             let avatarContent = '';
             if (conv.participant_profile_picture) {
-                avatarContent = `<img src="${basePath}${conv.participant_profile_picture}" class="w-100 h-100" style="object-fit: cover;" onerror="this.parentElement.innerHTML='<i class=\'bi bi-person-circle\' style=\'font-size: 1.5rem;\'></i>'">`;
+                avatarContent = `<img src="${appUrl(conv.participant_profile_picture)}" class="w-100 h-100" style="object-fit: cover;" onerror="this.parentElement.innerHTML='<i class=\'bi bi-person-circle\' style=\'font-size: 1.5rem;\'></i>'">`;
             } else {
                 avatarContent = `<i class="bi bi-person-circle" style="font-size: 1.5rem;"></i>`;
             }
@@ -222,7 +254,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const safeMsg = dispMsg.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
             html += `
-                <a href="message.php?conv_id=${conv.conversation_id}&view=${view}" class="conv-item ${isActive ? 'active' : ''}">
+                <a href="${appUrl(currentSection + '/message')}?conv_id=${conv.conversation_id}&view=${view}" class="conv-item ${isActive ? 'active' : ''}">
                     <div class="conv-avatar overflow-hidden">${avatarContent}</div>
                     <div class="conv-info">
                         <div class="d-flex justify-content-between align-items-center">
@@ -254,7 +286,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (id > currentLastId) currentLastId = id;
             });
 
-            fetch(basePath + `action/Notification/get_new_notifications.php?last_id=${currentLastId}`)
+            fetch(appUrl('action/Notification/get_new_notifications.php') + `?last_id=${currentLastId}`)
                 .then(response => {
                     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                     return response.text();
@@ -297,13 +329,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
             const item = document.createElement('div');
-            item.className = `notification-item ${!notif.is_read ? 'notification-unread' : ''} clickable`;
+            item.className = `notification-item ${!notif.is_read ? 'notification-unread' : ''}`;
             item.setAttribute('data-id', notif.id);
             item.setAttribute('data-title', notif.title);
             item.setAttribute('data-body', notif.body);
             
             // Re-calculate viewLink for the attribute
-            const viewLink = notif.link ? `${basePath}action/Notification/mark_read.php?id=${notif.id}&redirect=${encodeURIComponent(notif.link)}` : '';
+            const viewLink = notif.link ? appUrl(`action/Notification/mark_read.php?id=${notif.id}&redirect=${encodeURIComponent(notif.link)}`) : '';
             item.setAttribute('data-link', viewLink);
             
             const timeStr = new Date(notif.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true });
@@ -319,7 +351,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
                 <div class="notification-actions">
                     <a href="${viewLink}" class="btn btn-sm btn-primary ${!notif.link ? 'disabled' : ''}">View</a>
-                    <a href="${basePath}action/Notification/dismiss.php?id=${notif.id}" class="btn btn-sm btn-outline-secondary" title="Dismiss"><i class="bi bi-x"></i></a>
+                    <a href="${appUrl(`action/Notification/dismiss.php?id=${notif.id}`)}" class="btn btn-sm btn-outline-secondary" title="Dismiss"><i class="bi bi-x"></i></a>
                 </div>
             `;
             notificationList.prepend(item);
@@ -327,37 +359,32 @@ document.addEventListener('DOMContentLoaded', function() {
 
         setInterval(getNewNotifications, NOTIFICATION_POLL_INTERVAL);
 
-        // Click handler for notification items to show in modal
+        // Only intercept View links that would just redirect back to the same notification page.
         notificationList.addEventListener('click', function(e) {
-            const item = e.target.closest('.notification-item');
-            if (!item) return;
-
-            // If they clicked the Dismiss button (outline-secondary), let it happen normally
-            if (e.target.closest('.btn-outline-secondary')) return;
-
-            // If they clicked the 'View' button (btn-primary)
-            const viewBtn = e.target.closest('.btn-primary');
-            if (viewBtn) {
-                const link = item.getAttribute('data-link');
-                // If the link points to something other than notification.php, let the redirect happen
-                if (link && !link.includes('redirect=notification.php')) {
-                    return; // Follow the link
-                }
+            const viewButton = e.target.closest('.notification-actions .btn-primary');
+            if (!viewButton) {
+                return;
             }
 
-            // Otherwise, show the modal
+            if (!isSelfNotificationRedirect(viewButton.href)) {
+                return;
+            }
+
             e.preventDefault();
+
+            const item = viewButton.closest('.notification-item');
+            if (!item) {
+                return;
+            }
+
             const notif = {
                 id: item.getAttribute('data-id'),
                 title: item.getAttribute('data-title'),
                 body: item.getAttribute('data-body'),
-                link: item.getAttribute('data-link')
+                link: ''
             };
 
-            // Use the same modal logic as real-time alerts
             showSystemAlertModal(notif);
-            
-            // Mark as read in UI immediately
             item.classList.remove('notification-unread');
         });
     }
@@ -375,7 +402,7 @@ document.addEventListener('DOMContentLoaded', function() {
             function fetchNewMessages() {
                 const currentLastId = messageContainer.getAttribute('data-last-id') || 0;
                 
-                fetch(basePath + `action/Message/get_new_messages.php?conv_id=${convId}&last_id=${currentLastId}&update_read=true`)
+                fetch(appUrl(`action/Message/get_new_messages.php?conv_id=${convId}&last_id=${currentLastId}&update_read=true`))
                     .then(response => {
                         if (!response.ok) throw new Error('Network response was not ok');
                         return response.json();
@@ -428,7 +455,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (!isSent) {
                     let avatarContent = '';
                     if (typeof participantProfilePicture !== 'undefined' && participantProfilePicture) {
-                        avatarContent = `<img src="${basePath}${participantProfilePicture}" class="w-100 h-100" style="object-fit: cover;">`;
+                        avatarContent = `<img src="${appUrl(participantProfilePicture)}" class="w-100 h-100" style="object-fit: cover;">`;
                     } else {
                         avatarContent = `<i class="bi bi-person-circle" style="font-size: 1.2rem;"></i>`;
                     }

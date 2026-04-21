@@ -1,0 +1,8 @@
+RewriteEngine On
+
+# Let Apache serve static assets directly.
+RewriteCond %{REQUEST_URI} \.(?:css|js|mjs|map|png|jpe?g|gif|svg|webp|ico|woff2?|ttf|eot|json|txt|xml|pdf)$ [NC]
+RewriteRule ^ - [L]
+
+# Route page requests and PHP endpoints through Flight.
+RewriteRule ^ index.php [QSA,L]

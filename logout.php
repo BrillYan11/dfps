@@ -19,6 +19,8 @@ if (ini_get("session.use_cookies")) {
 session_destroy();
 
 // Redirect to homepage
-header("Location: index.php?message=loggedout");
+$basePath = trim(dirname($_SERVER['SCRIPT_NAME'] ?? '/index.php'), '/.');
+$location = '/' . ($basePath !== '' ? $basePath : '');
+header("Location: " . $location . "?message=loggedout");
 exit;
 ?>
