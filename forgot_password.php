@@ -55,15 +55,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     // Server settings
                     $mail->SMTPDebug = 0; // Turn off debug output
                     $mail->isSMTP();
-                    $mail->Host       = 'smtp.gmail.com'; 
+                    $mail->Host       = getenv('SMTP_HOST') ?: 'smtp.gmail.com'; 
                     $mail->SMTPAuth   = true;
-                    $mail->Username   = 'zzwapak2@gmail.com';    
-                    $mail->Password   = 'ynukkvyuupokajac';       
+                    $mail->Username   = getenv('SMTP_USER') ?: 'zzwapak2@gmail.com';    
+                    $mail->Password   = getenv('SMTP_PASS') ?: 'ynukkvyuupokajac';       
                     $mail->SMTPSecure = PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
-                    $mail->Port       = 587;
+                    $mail->Port       = getenv('SMTP_PORT') ?: 587;
 
                     // Recipients
-                    $mail->setFrom('zzwapak2@gmail.com', 'DFPS Admin'); 
+                    $mail->setFrom(getenv('SMTP_USER') ?: 'zzwapak2@gmail.com', 'DFPS Admin'); 
                     $mail->addAddress($email);
 
                     // Content
