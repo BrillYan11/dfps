@@ -25,6 +25,8 @@ $dfpsRouteAliases = [
     'update_db.php' => 'update_db.php',
     'initialize_database' => 'initialize_database.php',
     'initialize_database.php' => 'initialize_database.php',
+    'debug_db' => 'debug_db.php',
+    'debug_db.php' => 'debug_db.php',
     'buyer' => 'buyer/index.php',
     'buyer/index' => 'buyer/index.php',
     'buyer/index.php' => 'buyer/index.php',
@@ -95,6 +97,7 @@ $dfpsAllowedRootScripts = [
     'reset_password.php',
     'update_db.php',
     'initialize_database.php',
+    'debug_db.php',
 ];
 
 $dfpsAllowedDirectories = [
