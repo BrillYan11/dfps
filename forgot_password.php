@@ -23,10 +23,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $stmt = $conn->prepare("SELECT id FROM users WHERE email = ? LIMIT 1");
         $stmt->bind_param("s", $email);
         $stmt->execute();
-        $res = $stmt->get_result();
+        $user = dfps_fetch_assoc($stmt);
 
-        if ($res->num_rows == 1) {
-            $user = $res->fetch_assoc();
+        if ($user) {
             $user_id = $user['id'];
 
             // Generate a random token

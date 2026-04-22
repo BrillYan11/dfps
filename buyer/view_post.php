@@ -38,8 +38,7 @@ $query = "
 $stmt = $conn->prepare($query);
 $stmt->bind_param("i", $post_id);
 $stmt->execute();
-$result = $stmt->get_result();
-$post = $result->fetch_assoc();
+$post = dfps_fetch_assoc($stmt);
 $stmt->close();
 
 // If post not found, redirect
@@ -57,7 +56,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['express_interest']) &
     $check_stmt = $conn->prepare("SELECT id FROM post_interests WHERE post_id = ? AND buyer_id = ?");
     $check_stmt->bind_param("ii", $post_id, $current_user_id);
     $check_stmt->execute();
-    if ($check_stmt->get_result()->num_rows > 0) {
+    if (dfps_fetch_assoc($check_stmt)) {
         $interest_error = "You have already expressed interest in this product.";
     } else {
         $conn->begin_transaction();
@@ -74,7 +73,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['express_interest']) &
             $buyer_info_stmt = $conn->prepare("SELECT first_name, last_name FROM users WHERE id = ?");
             $buyer_info_stmt->bind_param("i", $current_user_id);
             $buyer_info_stmt->execute();
-            $buyer_info_result = $buyer_info_stmt->get_result()->fetch_assoc();
+            $buyer_info_result = dfps_fetch_assoc($buyer_info_stmt);
             $buyer_name = $buyer_info_result['first_name'] . ' ' . $buyer_info_result['last_name'];
             $buyer_info_stmt->close();
 
@@ -101,8 +100,8 @@ $images = [];
 $img_stmt = $conn->prepare("SELECT file_path FROM post_images WHERE post_id = ? ORDER BY id ASC");
 $img_stmt->bind_param("i", $post_id);
 $img_stmt->execute();
-$img_result = $img_stmt->get_result();
-while ($row = $img_result->fetch_assoc()) {
+$img_rows = dfps_fetch_all($img_stmt);
+foreach ($img_rows as $row) {
     $images[] = $row['file_path'];
 }
 $img_stmt->close();
@@ -212,3 +211,4 @@ include '../includes/universal_header.php';
 </div>
 
 <?php include '../includes/universal_footer.php'; ?>
+>

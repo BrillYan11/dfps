@@ -58,11 +58,10 @@ $conv_query = "
 $conv_stmt = $conn->prepare($conv_query);
 $conv_stmt->bind_param($types, ...$params);
 $conv_stmt->execute();
-$conv_result = $conv_stmt->get_result();
-$conversations = [];
-while ($row = $conv_result->fetch_assoc()) {
+$conversations = dfps_fetch_all($conv_stmt);
+foreach ($conversations as &$row) {
     $row['last_message'] = EncryptionUtil::decrypt($row['last_message']);
-    $conversations[] = $row;}
+}
 $conv_stmt->close();
 
 echo json_encode(['conversations' => $conversations]);

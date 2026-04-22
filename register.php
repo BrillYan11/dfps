@@ -46,8 +46,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $stmt = $conn->prepare("SELECT id FROM areas WHERE name = ?");
         $stmt->bind_param("s", $city_name);
         $stmt->execute();
-        $res = $stmt->get_result();
-        $area_row = $res->fetch_assoc();
+        $area_row = dfps_fetch_assoc($stmt);
         $area_id = $area_row['id'] ?? null;
         $stmt->close();
 

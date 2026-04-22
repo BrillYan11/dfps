@@ -80,7 +80,7 @@ $types .= 'ii';
 $stmt = $conn->prepare($base_query);
 $stmt->bind_param($types, ...$params);
 $stmt->execute();
-$posts = dfps_fetch_all($stmt->get_result());
+$posts = dfps_fetch_all($stmt);
 $stmt->close();
 
 header('Content-Type: application/json');

@@ -14,7 +14,7 @@ $user_id = $_SESSION['user_id'];
 $user_stmt = $conn->prepare("SELECT area_id FROM users WHERE id = ?");
 $user_stmt->bind_param("i", $user_id);
 $user_stmt->execute();
-$area_id = $user_stmt->get_result()->fetch_assoc()['area_id'] ?? null;
+$area_id = dfps_fetch_assoc($user_stmt)['area_id'] ?? null;
 $user_stmt->close();
 
 // Fetch all applicable announcements
@@ -29,10 +29,7 @@ $ann_query = "
 $ann_stmt = $conn->prepare($ann_query);
 $ann_stmt->bind_param("i", $area_id);
 $ann_stmt->execute();
-$result = $ann_stmt->get_result();
-while ($row = $result->fetch_assoc()) {
-    $announcements[] = $row;
-}
+$announcements = dfps_fetch_all($ann_stmt);
 $ann_stmt->close();
 
 include '../includes/universal_header.php';

@@ -60,7 +60,7 @@ $types .= "ii";
 $stmt = $conn->prepare($query);
 $stmt->bind_param($types, ...$params);
 $stmt->execute();
-$listings = dfps_fetch_all($stmt->get_result());
+$listings = dfps_fetch_all($stmt);
 $stmt->close();
 
 include '../includes/universal_header.php';
@@ -147,7 +147,7 @@ include '../includes/universal_header.php';
                                 $img_q = $conn->prepare("SELECT file_path FROM post_images WHERE post_id = ? ORDER BY id ASC LIMIT 1");
                                 $img_q->bind_param("i", $listing['id']);
                                 $img_q->execute();
-                                $img_res = $img_q->get_result()->fetch_assoc();
+                                $img_res = dfps_fetch_assoc($img_q);
                                 $thumb = $img_res ? '../' . $img_res['file_path'] : '../pic/no-image.svg';
                                 $img_q->close();
                             ?>

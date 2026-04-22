@@ -43,8 +43,7 @@ if ($receiver_id && !$selected_conv_id) {
     ");
     $conv_lookup_stmt->bind_param("ii", $current_user_id, $receiver_id);
     $conv_lookup_stmt->execute();
-    $conv_lookup_result = $conv_lookup_stmt->get_result();
-    if ($conv_row = $conv_lookup_result->fetch_assoc()) {
+    if ($conv_row = dfps_fetch_assoc($conv_lookup_stmt)) {
         $selected_conv_id = $conv_row['conversation_id'];
         $conn->query("UPDATE conversation_participants SET is_archived = 0 WHERE conversation_id = $selected_conv_id AND user_id = $current_user_id");
     } else {
@@ -70,9 +69,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty(trim($_POST['message_body'])
         $verify_stmt = $conn->prepare("SELECT user_id FROM conversation_participants WHERE conversation_id = ? AND user_id != ?");
         $verify_stmt->bind_param("ii", $selected_conv_id, $current_user_id);
         $verify_stmt->execute();
-        $result = $verify_stmt->get_result();
-        if ($result->num_rows > 0) {
-            $actual_receiver_id = $result->fetch_assoc()['user_id'];
+        $verify_res = dfps_fetch_assoc($verify_stmt);
+        if ($verify_res) {
+            $actual_receiver_id = $verify_res['user_id'];
             $encrypted_message_body = EncryptionUtil::encrypt($message_body);
             $msg_stmt = $conn->prepare("INSERT INTO messages (conversation_id, sender_id, body) VALUES (?, ?, ?)");
             $msg_stmt->bind_param("iis", $selected_conv_id, $current_user_id, $encrypted_message_body);
@@ -83,7 +82,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty(trim($_POST['message_body'])
             $me_stmt = $conn->prepare("SELECT first_name, last_name FROM users WHERE id = ?");
             $me_stmt->bind_param("i", $current_user_id);
             $me_stmt->execute();
-            $me = $me_stmt->get_result()->fetch_assoc();
+            $me = dfps_fetch_assoc($me_stmt);
             $me_stmt->close();
             
             $notif_title = "New Message from " . $me['first_name'];
@@ -128,8 +127,8 @@ $conv_query = "
 $conv_stmt = $conn->prepare($conv_query);
 $conv_stmt->bind_param("iiii", $current_user_id, $current_user_id, $current_user_id, $is_archived_filter);
 $conv_stmt->execute();
-$conv_result = $conv_stmt->get_result();
-while ($row = $conv_result->fetch_assoc()) { 
+$conv_rows = dfps_fetch_all($conv_stmt);
+foreach ($conv_rows as $row) { 
     $row['last_message'] = EncryptionUtil::decrypt($row['last_message']);
     $conversations[] = $row; 
 }
@@ -148,14 +147,14 @@ if ($selected_conv_id) {
     ");
     $p_stmt->bind_param("iii", $selected_conv_id, $current_user_id, $current_user_id);
     $p_stmt->execute();
-    $selected_participant = $p_stmt->get_result()->fetch_assoc();
+    $selected_participant = dfps_fetch_assoc($p_stmt);
     $p_stmt->close();
 
     if ($selected_participant) {
         $msg_stmt = $conn->prepare("SELECT id, sender_id, body, created_at, is_deleted FROM messages WHERE conversation_id = ? ORDER BY created_at ASC");
         $msg_stmt->bind_param("i", $selected_conv_id);
         $msg_stmt->execute();
-        $messages = dfps_fetch_all($msg_stmt->get_result());
+        $messages = dfps_fetch_all($msg_stmt);
         $msg_stmt->close();
 
         // Decrypt message bodies
@@ -264,8 +263,7 @@ include '../includes/universal_header.php';
                             $post_stmt = $conn->prepare("SELECT title FROM posts WHERE id = ?");
                             $post_stmt->bind_param("i", $post_id);
                             $post_stmt->execute();
-                            $post_title_res = $post_stmt->get_result();
-                            $post_title_row = $post_title_res->fetch_assoc();
+                            $post_title_row = dfps_fetch_assoc($post_stmt);
                             $post_title = $post_title_row ? $post_title_row['title'] : 'the product';
                             $post_stmt->close();
                         ?>

@@ -39,17 +39,73 @@ if (!function_exists('table_exists')) {
 
 /**
  * Compatibility helper to replace fetch_all(MYSQLI_ASSOC)
- * which requires mysqlnd driver.
+ * which requires mysqlnd driver. Now also supports mysqli_stmt objects.
  */
 if (!function_exists('dfps_fetch_all')) {
-    function dfps_fetch_all($result) {
+    function dfps_fetch_all($input) {
         $rows = [];
-        if ($result) {
-            while ($row = $result->fetch_assoc()) {
+        if ($input instanceof mysqli_result) {
+            while ($row = $input->fetch_assoc()) {
                 $rows[] = $row;
+            }
+        } elseif ($input instanceof mysqli_stmt) {
+            if (method_exists($input, 'get_result')) {
+                $result = $input->get_result();
+                if ($result) {
+                    while ($row = $result->fetch_assoc()) {
+                        $rows[] = $row;
+                    }
+                }
+            } else {
+                // Fallback for environments without mysqlnd
+                $input->store_result();
+                $meta = $input->result_metadata();
+                if ($meta) {
+                    $params = [];
+                    $row = [];
+                    while ($field = $meta->fetch_field()) {
+                        $params[] = &$row[$field->name];
+                    }
+                    call_user_func_array([$input, 'bind_result'], $params);
+                    while ($input->fetch()) {
+                        $copy = [];
+                        foreach ($row as $key => $val) {
+                            $copy[$key] = $val;
+                        }
+                        $rows[] = $copy;
+                    }
+                }
             }
         }
         return $rows;
+    }
+}
+
+/**
+ * Compatibility helper to fetch a single associative row from a statement or result.
+ */
+if (!function_exists('dfps_fetch_assoc')) {
+    function dfps_fetch_assoc($input) {
+        if ($input instanceof mysqli_result) {
+            return $input->fetch_assoc();
+        } elseif ($input instanceof mysqli_stmt) {
+            $all = dfps_fetch_all($input);
+            return $all[0] ?? null;
+        }
+        return null;
+    }
+}
+
+if (table_exists($conn, 'areas')) {
+    // Some versions used area_name, others name. Standardize on 'name'.
+    $res = $conn->query("SHOW COLUMNS FROM areas LIKE 'name'");
+    if ($res->num_rows == 0) {
+        $res2 = $conn->query("SHOW COLUMNS FROM areas LIKE 'area_name'");
+        if ($res2->num_rows > 0) {
+            $conn->query("ALTER TABLE areas CHANGE COLUMN area_name name VARCHAR(100) NOT NULL UNIQUE");
+        } else {
+            $conn->query("ALTER TABLE areas ADD COLUMN name VARCHAR(100) NOT NULL UNIQUE");
+        }
     }
 }
 

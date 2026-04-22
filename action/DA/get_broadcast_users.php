@@ -33,13 +33,8 @@ if ($target_area) {
 $stmt = $conn->prepare($query);
 if (!empty($params)) {
     $stmt->bind_param($types, ...$params);
-}
 $stmt->execute();
-$result = $stmt->get_result();
-$users = [];
-while ($row = $result->fetch_assoc()) {
-    $users[] = $row;
-}
+$users = dfps_fetch_all($stmt);
 $stmt->close();
 
 echo json_encode([

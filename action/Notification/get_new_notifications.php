@@ -18,8 +18,7 @@ $sql = "SELECT id, type, title, body, link, is_read, created_at FROM notificatio
 $stmt = $conn->prepare($sql);
 $stmt->bind_param("ii", $user_id, $last_id);
 $stmt->execute();
-$result = $stmt->get_result();
-$notifications = dfps_fetch_all($result);
+$notifications = dfps_fetch_all($stmt);
 $stmt->close();
 
 echo json_encode(['notifications' => $notifications]);

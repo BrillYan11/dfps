@@ -29,9 +29,8 @@ $stmt = $conn->prepare($sql);
 if ($stmt) {
     $stmt->bind_param("ii", $user_id, $user_id);
     $stmt->execute();
-    $result = $stmt->get_result();
-    if ($result) {
-        $row = $result->fetch_assoc();
+    $row = dfps_fetch_assoc($stmt);
+    if ($row) {
         $count = intval($row['unread_count'] ?? 0);
     }
     $stmt->close();

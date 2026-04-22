@@ -23,12 +23,11 @@ if (!$token) {
 $stmt = $conn->prepare("SELECT id, token_expires FROM users WHERE reset_token = ? LIMIT 1");
 $stmt->bind_param("s", $token);
 $stmt->execute();
-$res = $stmt->get_result();
+$user = dfps_fetch_assoc($stmt);
 
-if ($res->num_rows == 0) {
+if (!$user) {
     $error_message = "Invalid or expired token.";
 } else {
-    $user = $res->fetch_assoc();
     $user_id = $user['id'];
     $expires = strtotime($user['token_expires']);
 

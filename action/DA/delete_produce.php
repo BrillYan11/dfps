@@ -15,7 +15,7 @@ if ($id) {
     $check_stmt = $conn->prepare("SELECT COUNT(*) as count FROM posts WHERE produce_id = ?");
     $check_stmt->bind_param("i", $id);
     $check_stmt->execute();
-    $usage_count = $check_stmt->get_result()->fetch_assoc()['count'];
+    $usage_count = dfps_fetch_assoc($check_stmt)['count'] ?? 0;
     $check_stmt->close();
 
     if ($usage_count > 0) {

@@ -31,7 +31,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['process_request'])) {
             $req_stmt = $conn->prepare("SELECT farmer_id, resource_type FROM resource_requests WHERE id = ?");
             $req_stmt->bind_param("i", $request_id);
             $req_stmt->execute();
-            $req_data = $req_stmt->get_result()->fetch_assoc();
+            $req_data = dfps_fetch_assoc($req_stmt);
             $req_stmt->close();
             
             if ($req_data) {

@@ -70,8 +70,7 @@ $posts_query .= " ORDER BY p.created_at DESC";
 $stmt = $conn->prepare($posts_query);
 $stmt->bind_param($types, ...$params);
 $stmt->execute();
-$result = $stmt->get_result();
-$posts = dfps_fetch_all($result);
+$posts = dfps_fetch_all($stmt);
 $stmt->close();
 
 header('Content-Type: application/json');

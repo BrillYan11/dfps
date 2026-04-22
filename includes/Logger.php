@@ -41,8 +41,7 @@ class Logger {
         $stmt = $conn->prepare($sql);
         $stmt->bind_param("i", $limit);
         $stmt->execute();
-        $result = $stmt->get_result();
-        $logs = dfps_fetch_all($result);
+        $logs = dfps_fetch_all($stmt);
         $stmt->close();
         
         return $logs;

@@ -20,11 +20,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     // Fetch user phone
-    $stmt = $conn->prepare("SELECT phone, first_name, last_name FROM users WHERE id = ?");
+    $stmt = $conn->prepare("SELECT first_name, last_name, phone FROM users WHERE id = ?");
     $stmt->bind_param("i", $user_id);
     $stmt->execute();
-    $user = $stmt->get_result()->fetch_assoc();
+    $user = dfps_fetch_assoc($stmt);
     $stmt->close();
+
 
     if (!$user || empty($user['phone'])) {
         echo json_encode(['success' => false, 'error' => 'User not found or has no phone number.']);

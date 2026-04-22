@@ -38,8 +38,7 @@ class NotificationModel {
         $stmt = $conn->prepare($sql);
         $stmt->bind_param("i", $user_id);
         $stmt->execute();
-        $result = $stmt->get_result();
-        $notifications = dfps_fetch_all($result);
+        $notifications = dfps_fetch_all($stmt);
         $stmt->close();
         return $notifications;
     }
@@ -140,8 +139,7 @@ class NotificationModel {
         $stmt = $conn->prepare($sql);
         $stmt->bind_param("i", $user_id);
         $stmt->execute();
-        $result = $stmt->get_result();
-        $row = $result->fetch_assoc();
+        $row = dfps_fetch_assoc($stmt);
         $stmt->close();
         return (int)($row['unread_count'] ?? 0);
     }

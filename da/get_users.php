@@ -94,7 +94,7 @@ if ($stmt) {
         $stmt->bind_param($types, ...$params);
     }
     $stmt->execute();
-    $users = dfps_fetch_all($stmt->get_result());
+    $users = dfps_fetch_all($stmt);
     $stmt->close();
 } else {
     $users = [];

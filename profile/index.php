@@ -21,10 +21,7 @@ $stmt = $conn->prepare("SELECT * FROM users WHERE id = ?");
 if ($stmt) {
     $stmt->bind_param("i", $user_id);
     $stmt->execute();
-    $result = $stmt->get_result();
-    if ($result) {
-        $user = $result->fetch_assoc();
-    }
+    $user = dfps_fetch_assoc($stmt);
     $stmt->close();
 }
 
@@ -67,7 +64,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $stmt = $conn->prepare("SELECT * FROM users WHERE id = ?");
             $stmt->bind_param("i", $user_id);
             $stmt->execute();
-            $user = $stmt->get_result()->fetch_assoc();
+            $user = dfps_fetch_assoc($stmt);
             $stmt->close();
         }
         $update_stmt->close();
@@ -124,7 +121,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     $stmt = $conn->prepare("SELECT * FROM users WHERE id = ?");
                     $stmt->bind_param("i", $user_id);
                     $stmt->execute();
-                    $user = $stmt->get_result()->fetch_assoc();
+                    $user = dfps_fetch_assoc($stmt);
                     $stmt->close();
                 } else {
                     $error_message = "Error updating profile: " . $update_stmt->error;

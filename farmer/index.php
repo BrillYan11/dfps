@@ -15,8 +15,7 @@ $area_id = null;
 $user_stmt = $conn->prepare("SELECT area_id FROM users WHERE id = ?");
 $user_stmt->bind_param("i", $farmer_id);
 $user_stmt->execute();
-$user_result = $user_stmt->get_result();
-if ($user_row = $user_result->fetch_assoc()) {
+if ($user_row = dfps_fetch_assoc($user_stmt)) {
     $area_id = $user_row['area_id'];
 }
 $user_stmt->close();
@@ -43,8 +42,7 @@ $posts_query = "
 $stmt = $conn->prepare($posts_query);
 $stmt->bind_param("i", $farmer_id);
 $stmt->execute();
-$result = $stmt->get_result();
-while ($row = $result->fetch_assoc()) { $posts[] = $row; }
+$posts = dfps_fetch_all($stmt);
 $stmt->close();
 
 // Fetch lists for filter
@@ -62,8 +60,7 @@ $ann_query = "
 $ann_stmt = $conn->prepare($ann_query);
 $ann_stmt->bind_param("i", $area_id);
 $ann_stmt->execute();
-$ann_result = $ann_stmt->get_result();
-while ($ann_row = $ann_result->fetch_assoc()) { $announcements[] = $ann_row; }
+$announcements = dfps_fetch_all($ann_stmt);
 $ann_stmt->close();
 
 include '../includes/universal_header.php';

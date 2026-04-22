@@ -28,8 +28,7 @@ $stmt = $conn->prepare("
 ");
 $stmt->bind_param("ii", $post_id, $farmer_id);
 $stmt->execute();
-$result = $stmt->get_result();
-$post = $result->fetch_assoc();
+$post = dfps_fetch_assoc($stmt);
 $stmt->close();
 
 if (!$post) {

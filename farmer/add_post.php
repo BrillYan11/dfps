@@ -29,8 +29,7 @@ $area_name = 'N/A';
 $user_stmt = $conn->prepare("SELECT a.id, a.name FROM users u JOIN areas a ON u.area_id = a.id WHERE u.id = ?");
 $user_stmt->bind_param("i", $farmer_id);
 $user_stmt->execute();
-$user_result = $user_stmt->get_result();
-if ($user_row = $user_result->fetch_assoc()) {
+if ($user_row = dfps_fetch_assoc($user_stmt)) {
     $area_id = $user_row['id'];
     $area_name = $user_row['name'];
 }

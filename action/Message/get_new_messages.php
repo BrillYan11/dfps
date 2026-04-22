@@ -26,7 +26,7 @@ if (!$conv_id) {
 $verify_stmt = $conn->prepare("SELECT 1 FROM conversation_participants WHERE conversation_id = ? AND user_id = ?");
 $verify_stmt->bind_param("ii", $conv_id, $user_id);
 $verify_stmt->execute();
-if ($verify_stmt->get_result()->num_rows === 0) {
+if (count(dfps_fetch_all($verify_stmt)) === 0) {
     echo json_encode(['error' => 'Unauthorized']);
     exit;
 }
@@ -35,7 +35,7 @@ if ($verify_stmt->get_result()->num_rows === 0) {
 $msg_stmt = $conn->prepare("SELECT id, sender_id, body, created_at, is_deleted FROM messages WHERE conversation_id = ? AND id > ? ORDER BY created_at ASC");
 $msg_stmt->bind_param("ii", $conv_id, $last_id);
 $msg_stmt->execute();
-$messages = dfps_fetch_all($msg_stmt->get_result());
+$messages = dfps_fetch_all($msg_stmt);
 $msg_stmt->close();
 
 // Decrypt message bodies
@@ -48,7 +48,7 @@ $messages = array_map(function($msg) {
 $del_stmt = $conn->prepare("SELECT id FROM messages WHERE conversation_id = ? AND is_deleted = 1");
 $del_stmt->bind_param("i", $conv_id);
 $del_stmt->execute();
-$deleted_ids = dfps_fetch_all($del_stmt->get_result());
+$deleted_ids = dfps_fetch_all($del_stmt);
 $del_stmt->close();
 
 $deleted_ids_flat = array_column($deleted_ids, 'id');

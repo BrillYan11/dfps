@@ -20,13 +20,12 @@ if (!$post_id) {
 $post_stmt = $conn->prepare("SELECT title FROM posts WHERE id = ? AND farmer_id = ?");
 $post_stmt->bind_param("ii", $post_id, $farmer_id);
 $post_stmt->execute();
-$post_result = $post_stmt->get_result();
-if ($post_result->num_rows == 0) {
+$post = dfps_fetch_assoc($post_stmt);
+if (!$post) {
     // This farmer does not own this post, or post doesn't exist
     header("Location: index.php");
     exit;
 }
-$post = $post_result->fetch_assoc();
 $post_stmt->close();
 
 
@@ -48,10 +47,7 @@ $interest_query = "
 $stmt = $conn->prepare($interest_query);
 $stmt->bind_param("i", $post_id);
 $stmt->execute();
-$result = $stmt->get_result();
-while ($row = $result->fetch_assoc()) {
-    $interests[] = $row;
-}
+$interests = dfps_fetch_all($stmt);
 $stmt->close();
 
 include '../includes/universal_header.php';

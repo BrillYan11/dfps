@@ -44,10 +44,7 @@ $stmt = $conn->prepare("
 ");
 $stmt->bind_param("i", $farmer_id);
 $stmt->execute();
-$result = $stmt->get_result();
-while ($row = $result->fetch_assoc()) {
-    $requests[] = $row;
-}
+$requests = dfps_fetch_all($stmt);
 $stmt->close();
 
 include '../includes/universal_header.php';

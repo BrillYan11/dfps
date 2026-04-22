@@ -16,9 +16,8 @@ if ($id !== null && $status !== null) {
     $name_stmt = $conn->prepare("SELECT name FROM produce WHERE id = ?");
     $name_stmt->bind_param("i", $id);
     $name_stmt->execute();
-    $produce = $name_stmt->get_result()->fetch_assoc();
+    $produce = dfps_fetch_assoc($name_stmt);
     $name_stmt->close();
-
     if ($produce) {
         // 2. Toggle status
         $stmt = $conn->prepare("UPDATE produce SET is_active = ? WHERE id = ?");

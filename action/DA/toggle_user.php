@@ -14,11 +14,12 @@ $role_redirect = filter_input(INPUT_GET, 'role', FILTER_UNSAFE_RAW);
 
 if ($user_id !== null && $status !== null) {
     // Get user info for logging before update
-    $user_info_stmt = $conn->prepare("SELECT first_name, last_name, role FROM users WHERE id = ?");
+    $user_info_stmt = $conn->prepare("SELECT first_name, last_name, role, is_active FROM users WHERE id = ?");
     $user_info_stmt->bind_param("i", $user_id);
     $user_info_stmt->execute();
-    $target_user = $user_info_stmt->get_result()->fetch_assoc();
+    $target_user = dfps_fetch_assoc($user_info_stmt);
     $user_info_stmt->close();
+
 
     $current_role = $_SESSION['role'];
     

@@ -111,11 +111,8 @@ if (isset($_SESSION['user_id']) && isset($conn)) {
         if ($msg_count_stmt) {
             $msg_count_stmt->bind_param("ii", $_SESSION['user_id'], $_SESSION['user_id']);
             $msg_count_stmt->execute();
-            $msg_result = $msg_count_stmt->get_result();
-            if ($msg_result) {
-                $msg_row = $msg_result->fetch_assoc();
-                $unread_msg_count = $msg_row['c'] ?? 0;
-            }
+            $msg_row = dfps_fetch_assoc($msg_count_stmt);
+            $unread_msg_count = $msg_row['c'] ?? 0;
             $msg_count_stmt->close();
         }
     }
