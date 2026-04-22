@@ -1,18 +1,19 @@
 <?php
-session_start();
-include '../../includes/db.php';
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+include_once __DIR__ . '/../../includes/db.php';
 
 header('Content-Type: application/json');
 
-if (!isset($_SESSION['user_id'])) {
+if (!isset($_SESSION['user_id']) || !isset($conn)) {
     echo json_encode(['unread_count' => 0]);
     exit;
 }
 
 $user_id = $_SESSION['user_id'];
+$count = 0;
 
-// Count unread messages in conversations where user is an ACTIVE participant
-// We join with conversation_participants for THIS user to ensure they still "see" it.
 $sql = "
     SELECT COUNT(m.id) as unread_count
     FROM messages m
@@ -25,12 +26,16 @@ $sql = "
 ";
 
 $stmt = $conn->prepare($sql);
-$stmt->bind_param("ii", $user_id, $user_id);
-$stmt->execute();
-$result = $stmt->get_result();
-$row = $result->fetch_assoc();
-
-$count = intval($row['unread_count'] ?? 0);
+if ($stmt) {
+    $stmt->bind_param("ii", $user_id, $user_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    if ($result) {
+        $row = $result->fetch_assoc();
+        $count = intval($row['unread_count'] ?? 0);
+    }
+    $stmt->close();
+}
 
 echo json_encode(['unread_count' => $count]);
 ?>
