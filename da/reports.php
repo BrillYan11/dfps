@@ -23,17 +23,17 @@ if ($date_from && $date_to) {
 switch ($report_type) {
     case 'users':
         $report_title = "User Directory & Statistics";
-        $data = $conn->query("SELECT u.*, a.name as area_name FROM users u LEFT JOIN areas a ON u.area_id = a.id WHERE role != 'DA' $date_clause ORDER BY role, last_name")->fetch_all(MYSQLI_ASSOC);
+        $data = dfps_fetch_all($conn->query("SELECT u.*, a.name as area_name FROM users u LEFT JOIN areas a ON u.area_id = a.id WHERE role != 'DA' $date_clause ORDER BY role, last_name"));
         break;
     
     case 'produce':
         $report_title = "Produce Master List & SRP Standards";
-        $data = $conn->query("SELECT * FROM produce ORDER BY name")->fetch_all(MYSQLI_ASSOC);
+        $data = dfps_fetch_all($conn->query("SELECT * FROM produce ORDER BY name"));
         break;
 
     case 'listings':
         $report_title = "Market Listing Activity Report";
-        $data = $conn->query("
+        $data = dfps_fetch_all($conn->query("
             SELECT p.*, pr.name as produce_name, u.first_name, u.last_name, a.name as area_name 
             FROM posts p 
             JOIN produce pr ON p.produce_id = pr.id 
@@ -41,7 +41,7 @@ switch ($report_type) {
             LEFT JOIN areas a ON p.area_id = a.id 
             WHERE 1=1 $date_clause 
             ORDER BY p.created_at DESC
-        ")->fetch_all(MYSQLI_ASSOC);
+        "));
         break;
 
     case 'price_analysis':
@@ -57,7 +57,7 @@ switch ($report_type) {
         ";
         $result = $conn->query($query);
         if ($result) {
-            $data = $result->fetch_all(MYSQLI_ASSOC);
+            $data = dfps_fetch_all($result);
         }
         break;
 

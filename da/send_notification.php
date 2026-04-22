@@ -11,7 +11,7 @@ if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['DA', 'DA_SUPE
 
 // Fetch areas for the dropdown
 $areas_res = $conn->query("SELECT id, name FROM areas ORDER BY name ASC");
-$areas = ($areas_res) ? $areas_res->fetch_all(MYSQLI_ASSOC) : [];
+$areas = ($areas_res) ? dfps_fetch_all($areas_res) : [];
 
 include '../includes/universal_header.php';
 ?>

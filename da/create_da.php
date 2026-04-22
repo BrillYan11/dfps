@@ -50,7 +50,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['create_da'])) {
 }
 
 // Fetch areas for the dropdown
-$areas = $conn->query("SELECT id, name FROM areas ORDER BY name ASC")->fetch_all(MYSQLI_ASSOC);
+$areas = dfps_fetch_all($conn->query("SELECT id, name FROM areas ORDER BY name ASC"));
 
 include '../includes/universal_header.php';
 ?>

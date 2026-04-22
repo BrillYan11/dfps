@@ -13,54 +13,54 @@ $da_id = $_SESSION['user_id'];
 
 // --- ANALYTICS DATA FETCHING ---
 // 1. User Stats
-$user_counts = $conn->query("SELECT role, COUNT(*) as count FROM users GROUP BY role")->fetch_all(MYSQLI_ASSOC);
+$user_counts = dfps_fetch_all($conn->query("SELECT role, COUNT(*) as count FROM users GROUP BY role"));
 $stats_users = ['FARMER' => 0, 'BUYER' => 0, 'DA' => 0];
 foreach($user_counts as $uc) { $stats_users[$uc['role']] = $uc['count']; }
 
 // 2. Post Stats
-$post_stats = $conn->query("SELECT status, COUNT(*) as count FROM posts GROUP BY status")->fetch_all(MYSQLI_ASSOC);
+$post_stats = dfps_fetch_all($conn->query("SELECT status, COUNT(*) as count FROM posts GROUP BY status"));
 $stats_posts = ['ACTIVE' => 0, 'SOLD' => 0];
 foreach($post_stats as $ps) { if(isset($stats_posts[$ps['status']])) $stats_posts[$ps['status']] = $ps['count']; }
 
 // 3. Price Analysis (Avg price per Produce)
-$price_analysis = $conn->query("
+$price_analysis = dfps_fetch_all($conn->query("
     SELECT pr.name, AVG(p.price) as avg_price, p.unit, pr.srp
     FROM posts p 
     JOIN produce pr ON p.produce_id = pr.id 
     WHERE p.status = 'ACTIVE' 
     GROUP BY pr.name, p.unit, pr.srp
     LIMIT 5
-")->fetch_all(MYSQLI_ASSOC);
+"));
 
 // 4. Recent Activity (Latest Posts) with SRP comparison
-$recent_posts = $conn->query("
+$recent_posts = dfps_fetch_all($conn->query("
     SELECT p.id, p.title, p.price, p.unit, u.first_name, u.last_name, p.created_at, pr.srp as produce_srp
     FROM posts p
     JOIN users u ON p.farmer_id = u.id
     JOIN produce pr ON p.produce_id = pr.id
     ORDER BY p.created_at DESC
     LIMIT 5
-")->fetch_all(MYSQLI_ASSOC);
+"));
 
 // 5. Area Distribution
-$area_distribution = $conn->query("
+$area_distribution = dfps_fetch_all($conn->query("
     SELECT a.name, COUNT(u.id) as user_count 
     FROM areas a 
     LEFT JOIN users u ON a.id = u.area_id 
     GROUP BY a.id, a.name 
     ORDER BY user_count DESC 
     LIMIT 5
-")->fetch_all(MYSQLI_ASSOC);
+"));
 
 // 6. Top Produce by Listings
-$top_produce = $conn->query("
+$top_produce = dfps_fetch_all($conn->query("
     SELECT pr.name, COUNT(p.id) as post_count 
     FROM produce pr 
     LEFT JOIN posts p ON pr.id = p.produce_id 
     GROUP BY pr.id, pr.name 
     ORDER BY post_count DESC 
     LIMIT 5
-")->fetch_all(MYSQLI_ASSOC);
+"));
 
 include '../includes/universal_header.php';
 ?>

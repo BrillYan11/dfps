@@ -71,7 +71,7 @@ $stmt = $conn->prepare($posts_query);
 $stmt->bind_param($types, ...$params);
 $stmt->execute();
 $result = $stmt->get_result();
-$posts = $result->fetch_all(MYSQLI_ASSOC);
+$posts = dfps_fetch_all($result);
 $stmt->close();
 
 header('Content-Type: application/json');

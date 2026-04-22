@@ -42,7 +42,7 @@ class Logger {
         $stmt->bind_param("i", $limit);
         $stmt->execute();
         $result = $stmt->get_result();
-        $logs = $result->fetch_all(MYSQLI_ASSOC);
+        $logs = dfps_fetch_all($result);
         $stmt->close();
         
         return $logs;

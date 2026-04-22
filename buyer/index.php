@@ -95,9 +95,9 @@ while ($row = $result->fetch_assoc()) {
 $stmt->close();
 
 // Fetch Produce list for filter
-$produce_list = $conn->query("SELECT id, name FROM produce WHERE is_active = 1 ORDER BY name ASC")->fetch_all(MYSQLI_ASSOC);
+$produce_list = dfps_fetch_all($conn->query("SELECT id, name FROM produce WHERE is_active = 1 ORDER BY name ASC"));
 // Fetch Areas list for filter
-$areas_list = $conn->query("SELECT id, name FROM areas ORDER BY name ASC")->fetch_all(MYSQLI_ASSOC);
+$areas_list = dfps_fetch_all($conn->query("SELECT id, name FROM areas ORDER BY name ASC"));
 
 // 3. Fetch relevant announcements
 $announcements = [];

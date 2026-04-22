@@ -85,7 +85,7 @@ if (!empty($params)) {
     $stmt->bind_param($types, ...$params);
 }
 $stmt->execute();
-$users = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+$users = dfps_fetch_all($stmt->get_result());
 $stmt->close();
 
 header('Content-Type: application/json');

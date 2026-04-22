@@ -68,17 +68,17 @@ $total_rows = $conn->query("SELECT COUNT(*) FROM announcements")->fetch_row()[0]
 $total_pages = ceil($total_rows / $limit);
 
 // Fetch existing announcements with pagination
-$announcements = $conn->query("
+$announcements = dfps_fetch_all($conn->query("
     SELECT a.*, ar.name as area_name, u.first_name, u.last_name 
     FROM announcements a 
     LEFT JOIN areas ar ON a.area_id = ar.id 
     JOIN users u ON a.da_id = u.id 
     ORDER BY a.created_at DESC
     LIMIT $limit OFFSET $offset
-")->fetch_all(MYSQLI_ASSOC);
+"));
 
 // Fetch areas for the dropdown
-$areas = $conn->query("SELECT id, name FROM areas ORDER BY name ASC")->fetch_all(MYSQLI_ASSOC);
+$areas = dfps_fetch_all($conn->query("SELECT id, name FROM areas ORDER BY name ASC"));
 
 include '../includes/universal_header.php';
 ?>

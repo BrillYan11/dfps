@@ -60,7 +60,7 @@ $types .= "ii";
 $stmt = $conn->prepare($query);
 $stmt->bind_param($types, ...$params);
 $stmt->execute();
-$listings = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+$listings = dfps_fetch_all($stmt->get_result());
 $stmt->close();
 
 include '../includes/universal_header.php';

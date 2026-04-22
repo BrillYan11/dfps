@@ -32,7 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_produce'])) {
 }
 
 // Fetch all produce
-$produce_list = $conn->query("SELECT * FROM produce ORDER BY name ASC")->fetch_all(MYSQLI_ASSOC);
+$produce_list = dfps_fetch_all($conn->query("SELECT * FROM produce ORDER BY name ASC"));
 
 include '../includes/universal_header.php';
 ?>

@@ -48,8 +48,8 @@ while ($row = $result->fetch_assoc()) { $posts[] = $row; }
 $stmt->close();
 
 // Fetch lists for filter
-$produce_list = $conn->query("SELECT id, name FROM produce WHERE is_active = 1 ORDER BY name ASC")->fetch_all(MYSQLI_ASSOC);
-$areas_list = $conn->query("SELECT id, name FROM areas ORDER BY name ASC")->fetch_all(MYSQLI_ASSOC);
+$produce_list = dfps_fetch_all($conn->query("SELECT id, name FROM produce WHERE is_active = 1 ORDER BY name ASC"));
+$areas_list = dfps_fetch_all($conn->query("SELECT id, name FROM areas ORDER BY name ASC"));
 
 // 3. Fetch announcements
 $announcements = [];

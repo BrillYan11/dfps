@@ -37,6 +37,22 @@ if (!function_exists('table_exists')) {
     }
 }
 
+/**
+ * Compatibility helper to replace fetch_all(MYSQLI_ASSOC)
+ * which requires mysqlnd driver.
+ */
+if (!function_exists('dfps_fetch_all')) {
+    function dfps_fetch_all($result) {
+        $rows = [];
+        if ($result) {
+            while ($row = $result->fetch_assoc()) {
+                $rows[] = $row;
+            }
+        }
+        return $rows;
+    }
+}
+
 if (table_exists($conn, 'conversation_participants')) {
     // Check for is_archived in conversation_participants
     $res = $conn->query("SHOW COLUMNS FROM conversation_participants LIKE 'is_archived'");

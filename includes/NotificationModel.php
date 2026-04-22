@@ -39,7 +39,7 @@ class NotificationModel {
         $stmt->bind_param("i", $user_id);
         $stmt->execute();
         $result = $stmt->get_result();
-        $notifications = $result->fetch_all(MYSQLI_ASSOC);
+        $notifications = dfps_fetch_all($result);
         $stmt->close();
         return $notifications;
     }

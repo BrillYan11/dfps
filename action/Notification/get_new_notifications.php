@@ -19,7 +19,7 @@ $stmt = $conn->prepare($sql);
 $stmt->bind_param("ii", $user_id, $last_id);
 $stmt->execute();
 $result = $stmt->get_result();
-$notifications = $result->fetch_all(MYSQLI_ASSOC);
+$notifications = dfps_fetch_all($result);
 $stmt->close();
 
 echo json_encode(['notifications' => $notifications]);

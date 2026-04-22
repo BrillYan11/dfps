@@ -150,7 +150,7 @@ if ($selected_conv_id) {
         $msg_stmt = $conn->prepare("SELECT id, sender_id, body, created_at, is_deleted FROM messages WHERE conversation_id = ? ORDER BY created_at ASC");
         $msg_stmt->bind_param("i", $selected_conv_id);
         $msg_stmt->execute();
-        $messages = $msg_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+        $messages = dfps_fetch_all($msg_stmt->get_result());
         $msg_stmt->close();
 
         // Decrypt message bodies
