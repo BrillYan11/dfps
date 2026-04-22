@@ -1,6 +1,8 @@
 <?php
-session_start();
-include '../includes/db.php';
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+include_once __DIR__ . '/../includes/db.php';
 
 if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['DA', 'DA_SUPER_ADMIN'])) {
     header('Content-Type: application/json');
@@ -35,7 +37,13 @@ if ($search) {
     $search_safe = $conn->real_escape_string($search);
     $count_query .= " AND (u.first_name LIKE '%$search_safe%' OR u.last_name LIKE '%$search_safe%' OR u.email LIKE '%$search_safe%' OR u.username LIKE '%$search_safe%')";
 }
-$total_rows = $conn->query($count_query)->fetch_row()[0];
+
+$total_rows = 0;
+$count_res = $conn->query($count_query);
+if ($count_res) {
+    $count_row = $count_res->fetch_row();
+    $total_rows = (int)($count_row[0] ?? 0);
+}
 $total_pages = ceil($total_rows / $limit);
 
 // 2. Data fetching for the list
@@ -81,12 +89,16 @@ $params[] = $offset;
 $types .= "ii";
 
 $stmt = $conn->prepare($query);
-if (!empty($params)) {
-    $stmt->bind_param($types, ...$params);
+if ($stmt) {
+    if (!empty($params)) {
+        $stmt->bind_param($types, ...$params);
+    }
+    $stmt->execute();
+    $users = dfps_fetch_all($stmt->get_result());
+    $stmt->close();
+} else {
+    $users = [];
 }
-$stmt->execute();
-$users = dfps_fetch_all($stmt->get_result());
-$stmt->close();
 
 header('Content-Type: application/json');
 echo json_encode([

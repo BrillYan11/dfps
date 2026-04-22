@@ -53,7 +53,11 @@ if ($search) {
     $search_safe = $conn->real_escape_string($search);
     $count_query .= " AND (first_name LIKE '%$search_safe%' OR last_name LIKE '%$search_safe%' OR email LIKE '%$search_safe%' OR username LIKE '%$search_safe%')";
 }
-$total_rows = $conn->query($count_query)->fetch_row()[0];
+$total_rows = 0;
+$count_res = $conn->query($count_query);
+if ($count_res) {
+    $total_rows = (int)$count_res->fetch_row()[0];
+}
 $total_pages = ceil($total_rows / $limit);
 
 // 3. Data fetching for the list

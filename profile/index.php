@@ -1,7 +1,9 @@
 <?php
-session_start();
-include '../includes/db.php';
-require_once '../includes/ImageUtil.php';
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+include_once __DIR__ . '/../includes/db.php';
+require_once __DIR__ . '/../includes/ImageUtil.php';
 
 if (!isset($_SESSION['user_id'])) {
     header("Location: ../login.php");
@@ -14,11 +16,21 @@ $error_message = '';
 $success_message = '';
 
 // Fetch current user data
+$user = null;
 $stmt = $conn->prepare("SELECT * FROM users WHERE id = ?");
-$stmt->bind_param("i", $user_id);
-$stmt->execute();
-$user = $stmt->get_result()->fetch_assoc();
-$stmt->close();
+if ($stmt) {
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    if ($result) {
+        $user = $result->fetch_assoc();
+    }
+    $stmt->close();
+}
+
+if (!$user) {
+    die("User not found or database error.");
+}
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if (isset($_POST['change_password'])) {
