@@ -1,9 +1,11 @@
 <?php
-session_start();
 include '../../includes/db.php';
 include_once '../../includes/Logger.php';
 
 header('Content-Type: application/json');
+
+// Use CSRF guard for AJAX
+csrf_guard_ajax();
 
 if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['DA', 'DA_SUPER_ADMIN'])) {
     echo json_encode(['success' => false, 'error' => 'Unauthorized']);

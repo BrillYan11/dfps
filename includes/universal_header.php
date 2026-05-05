@@ -1,23 +1,20 @@
 <?php
 // universal_header.php - Consolidated header for all roles
 require_once __DIR__ . '/url_helpers.php';
+require_once __DIR__ . '/security.php';
 
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
+// Internal helpers for the header
+// We use relative paths here because the <base> tag handles the application root.
 $url = static function (string $path = ''): string {
-    if (function_exists('dfps_helper_url')) {
-        return dfps_helper_url($path);
+    $rawPath = str_replace('\\', '/', $path);
+    if (preg_match('#^(https?:)?//#', $rawPath)) {
+        return $rawPath;
     }
-    return '/';
+    return trim($rawPath, '/');
 };
 
 $asset = static function (string $path): string {
-    if (function_exists('dfps_helper_asset')) {
-        return dfps_helper_asset($path);
-    }
-    return '/' . trim(str_replace('\\', '/', $path), '/');
+    return trim(str_replace('\\', '/', $path), '/');
 };
 
 // Define configuration based on role
@@ -97,6 +94,7 @@ $config = [
 ];
 
 $current_config = $config[$role] ?? $config['GUEST'];
+$sys_version = '1.0.5'; // Increment for cache busting
 
 // Fetch unread counts
 $unread_notif_count = 0;
@@ -123,19 +121,25 @@ if (isset($_SESSION['user_id']) && isset($conn)) {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title><?php echo $current_config['title']; ?></title>
+  <title><?php echo htmlspecialchars($current_config['title']); ?></title>
 
-  <link rel="stylesheet" href="<?php echo $asset('bootstrap/css/bootstrap.css'); ?>">
-  <link rel="stylesheet" href="<?php echo $asset('css/style.css'); ?>?v=<?php echo time(); ?>">
-  <link rel="stylesheet" href="<?php echo $asset('css/header.css'); ?>?v=<?php echo time(); ?>">
-  <link rel="stylesheet" href="<?php echo $asset('css/message.css'); ?>?v=<?php echo time(); ?>">
-  <link rel="stylesheet" href="<?php echo $asset('css/notification.css'); ?>?v=<?php echo time(); ?>">
-  <link rel="stylesheet" href="<?php echo $asset('css/auth.css'); ?>?v=<?php echo time(); ?>">
-  <link rel="icon" type="image/svg+xml" href="<?php echo $asset('pic/image/Da_logo.svg'); ?>">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+  <?php 
+    $base_path = rtrim(dfps_helper_url('/'), '/') . '/';
+  ?>
+  <base href="<?php echo htmlspecialchars($base_path); ?>">
 
-  <script src="<?php echo $asset('bootstrap/js/bootstrap.bundle.min.js'); ?>" defer></script>
-  <script src="<?php echo $asset('js/realtime.js'); ?>?v=<?php echo time(); ?>" defer></script>
+  <link rel="stylesheet" href="bootstrap/css/bootstrap.css">
+  <link rel="stylesheet" href="css/style.css?v=<?php echo $sys_version; ?>">
+  <link rel="stylesheet" href="css/header.css?v=<?php echo $sys_version; ?>">
+  <link rel="stylesheet" href="css/message.css?v=<?php echo $sys_version; ?>">
+  <link rel="stylesheet" href="css/notification.css?v=<?php echo $sys_version; ?>">
+  <link rel="stylesheet" href="css/auth.css?v=<?php echo $sys_version; ?>">
+  
+  <link rel="icon" type="image/svg+xml" href="<?php echo dfps_helper_url('pic/image/Da_logo.svg'); ?>">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css" crossorigin="anonymous">
+
+  <script src="bootstrap/js/bootstrap.bundle.min.js" defer></script>
+  <script src="js/realtime.js?v=<?php echo $sys_version; ?>" defer></script>
   
   <style>
     :root {
@@ -158,24 +162,24 @@ if (isset($_SESSION['user_id']) && isset($conn)) {
 
 <aside class="app-sidebar" id="appSidebar">
   <div class="sidebar-header">
-    <h5 class="mb-0 fw-bold"><?php echo $current_config['menu_header']; ?></h5>
+    <h5 class="mb-0 fw-bold"><?php echo htmlspecialchars($current_config['menu_header']); ?></h5>
     <button type="button" class="btn-close btn-close-white" id="closeSidebar"></button>
   </div>
   <div class="sidebar-content">
     <?php foreach ($current_config['links'] as $link): ?>
-    <a href="<?php echo $link['url']; ?>" class="sidebar-link">
+    <a href="<?php echo htmlspecialchars($link['url']); ?>" class="sidebar-link">
       <i class="bi <?php echo $link['icon']; ?>"></i>
-      <span><?php echo $link['label']; ?></span>
+      <span><?php echo htmlspecialchars($link['label']); ?></span>
     </a>
     <?php endforeach; ?>
     <hr>
     <?php if (isset($_SESSION['user_id'])): ?>
-    <a href="<?php echo $url('logout'); ?>" class="sidebar-link text-danger">
+    <a href="logout" class="sidebar-link text-danger">
       <i class="bi bi-box-arrow-right"></i>
       <span>Logout</span>
     </a>
     <?php else: ?>
-    <a href="<?php echo $url('login'); ?>" class="sidebar-link text-primary">
+    <a href="login" class="sidebar-link text-primary">
       <i class="bi bi-box-arrow-in-right"></i>
       <span>Login</span>
     </a>
@@ -194,9 +198,9 @@ if (isset($_SESSION['user_id']) && isset($conn)) {
       elseif ($role === 'BUYER') $brand_url = $url('buyer/');
       elseif (in_array($role, ['DA', 'DA_SUPER_ADMIN'])) $brand_url = $url('da/');
     ?>
-    <a href="<?php echo $brand_url; ?>" class="app-title-link">
-      <img src="<?php echo $asset('pic/image/Da_logo.svg'); ?>" alt="Logo" class="header-logo">
-      <span class="app-title"><?php echo $current_config['brand']; ?></span>
+    <a href="<?php echo htmlspecialchars($brand_url); ?>" class="app-title-link">
+      <img src="<?php echo dfps_helper_url('pic/image/Da_logo.svg'); ?>" alt="Logo" class="header-logo">
+      <span class="app-title"><?php echo htmlspecialchars($current_config['brand']); ?></span>
     </a>
   </div>
 
@@ -219,7 +223,7 @@ if (isset($_SESSION['user_id']) && isset($conn)) {
         elseif ($role === 'FARMER') $msg_url = $url('farmer/message');
         else $msg_url = $url('buyer/message');
     ?>
-    <a href="<?php echo $msg_url; ?>" class="header-item">
+    <a href="<?php echo htmlspecialchars($msg_url); ?>" class="header-item">
       <i class="bi bi-chat-dots"></i>
       <span class="d-none d-md-block">Message</span>
       <?php if ($unread_msg_count > 0): ?>
@@ -230,7 +234,7 @@ if (isset($_SESSION['user_id']) && isset($conn)) {
     <?php 
       $notif_url = ($role === 'FARMER') ? $url('farmer/notification') : (($role === 'BUYER') ? $url('buyer/notification') : $url('da/notification'));
     ?>
-    <a href="<?php echo $notif_url; ?>" class="header-item">
+    <a href="<?php echo htmlspecialchars($notif_url); ?>" class="header-item">
       <i class="bi bi-bell"></i>
       <span class="d-none d-md-block">Alerts</span>
       <?php if ($unread_notif_count > 0): ?>
@@ -240,15 +244,26 @@ if (isset($_SESSION['user_id']) && isset($conn)) {
     <?php endif; ?>
 
     <?php if ($role === 'GUEST'): ?>
-    <a href="<?php echo $url('login'); ?>" class="header-item"><i class="bi bi-box-arrow-in-right"></i><span class="d-none d-md-block">Login</span></a>
+    <a href="login" class="header-item"><i class="bi bi-box-arrow-in-right"></i><span class="d-none d-md-block">Login</span></a>
     <?php else: ?>
-    <a href="<?php echo $url('logout'); ?>" class="header-item"><i class="bi bi-box-arrow-right"></i><span class="d-none d-md-block">Logout</span></a>
+    <a href="logout" class="header-item"><i class="bi bi-box-arrow-right"></i><span class="d-none d-md-block">Logout</span></a>
     <?php endif; ?>
   </div>
 </header>
 
 <script type="text/javascript">
 window.DFPS_APP_ROOT = <?php echo json_encode(function_exists('dfps_helper_app_root') ? dfps_helper_app_root() : ''); ?>;
+window.CSRF_TOKEN = <?php echo json_encode(get_csrf_token()); ?>;
+
+function escapeHTML(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
 
 function googleTranslateElementInit() {
   new google.translate.TranslateElement({pageLanguage: 'en', includedLanguages: 'en,ceb', autoDisplay: false}, 'google_translate_element');
@@ -278,96 +293,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const closeSidebar = document.getElementById('closeSidebar');
     const appSidebar = document.getElementById('appSidebar');
     const sidebarOverlay = document.getElementById('sidebarOverlay');
-    const appRoot = (window.DFPS_APP_ROOT || '').replace(/\/$/, '');
-    const currentPath = window.location.pathname;
-    const relativePath = appRoot && currentPath.startsWith(appRoot) ? currentPath.slice(appRoot.length) : currentPath;
-    const pathSegments = relativePath.replace(/^\/+/, '').split('/').filter(Boolean);
-    const currentSection = ['buyer', 'farmer', 'da', 'profile'].includes(pathSegments[0]) ? pathSegments[0] : '';
-
-    const routeMap = {
-      'index.php': currentSection ? currentSection + '/' : '',
-      'add_post.php': 'farmer/add_post',
-      'edit_post.php': 'farmer/edit_post',
-      'message.php': currentSection ? currentSection + '/message' : 'buyer/message',
-      'notification.php': currentSection ? currentSection + '/notification' : 'buyer/notification',
-      'announcements.php': currentSection ? currentSection + '/announcements' : 'buyer/announcements',
-      'view_post.php': 'buyer/view_post',
-      'view_interests.php': 'farmer/view_interests',
-      'users.php': 'da/users',
-      'listings.php': 'da/listings',
-      'reports.php': 'da/reports',
-      'produce.php': 'da/produce',
-      'send_notification.php': 'da/send_notification',
-      'create_da.php': 'da/create_da',
-      'backup.php': 'da/backup',
-      'login.php': 'login',
-      'register.php': 'register',
-      'forgot_password.php': 'forgot_password',
-      'reset_password.php': 'reset_password',
-      'logout.php': 'logout'
-    };
-
-    function appUrl(path) {
-      if (!path) {
-        return appRoot || '/';
-      }
-
-      if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('mailto:') || path.startsWith('tel:') || path.startsWith('#') || path.startsWith('javascript:')) {
-        return path;
-      }
-
-      if (path.startsWith(appRoot + '/')) {
-        return path;
-      }
-
-      const appRootWithoutSlash = appRoot.replace(/^\/+/, '');
-      if (appRootWithoutSlash && path.startsWith(appRootWithoutSlash + '/')) {
-        return '/' + path.replace(/^\/+/, '');
-      }
-
-      if (path.startsWith('/')) {
-        return path;
-      }
-
-      const normalized = path.replace(/^\.\/+/, '').replace(/^(\.\.\/)+/, '');
-      const [pathOnly, suffix = ''] = normalized.split(/([?#].*)/, 2);
-
-      // Preserve explicit nested PHP endpoints such as action/Notification/mark_read.php.
-      if (pathOnly.includes('/')) {
-        return (appRoot ? appRoot : '') + '/' + normalized.replace(/^\/+/, '');
-      }
-
-      const target = routeMap[pathOnly] || pathOnly.replace(/\.php$/, '');
-      const finalTarget = suffix ? target + suffix : target;
-      return (appRoot ? appRoot : '') + '/' + finalTarget.replace(/^\/+/, '');
-    }
-
-    document.querySelectorAll('a[href], form[action]').forEach(function(element) {
-      const attr = element.tagName === 'FORM' ? 'action' : 'href';
-      const value = element.getAttribute(attr);
-
-      if (!value) {
-        return;
-      }
-
-      // Leave any explicit path alone. Only rewrite simple route-like values.
-      if (
-        value.startsWith('/') ||
-        value.startsWith('./') ||
-        value.startsWith('../') ||
-        value.startsWith('?') ||
-        value.startsWith('#') ||
-        value.startsWith('http://') ||
-        value.startsWith('https://') ||
-        value.startsWith('mailto:') ||
-        value.startsWith('tel:') ||
-        value.startsWith('javascript:')
-      ) {
-        return;
-      }
-
-      element.setAttribute(attr, appUrl(value));
-    });
 
     function toggleSidebar() {
       appSidebar.classList.toggle('active');

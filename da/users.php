@@ -6,7 +6,7 @@ include_once __DIR__ . '/../includes/db.php';
 include_once __DIR__ . '/../includes/pagination.php';
 
 if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['DA', 'DA_SUPER_ADMIN'])) {
-    header("Location: ../login.php");
+    header("Location: " . dfps_helper_url('login'));
     exit;
 }
 
@@ -42,21 +42,48 @@ $res3 = $conn->query("SELECT COUNT(*) FROM users WHERE is_active = 1");
 if ($res3) $active_accounts = $res3->fetch_row()[0];
 
 // 2. Count total for pagination
-$count_query = "SELECT COUNT(*) FROM users WHERE 1=1";
-if ($role_filter) $count_query .= " AND role = '$role_filter'";
-if ($area_filter) $count_query .= " AND area_id = $area_filter";
+$count_query = "SELECT COUNT(*) as total FROM users WHERE 1=1";
+$count_params = [];
+$count_types = "";
+
+if ($role_filter) {
+    $count_query .= " AND role = ?";
+    $count_params[] = $role_filter;
+    $count_types .= "s";
+}
+if ($area_filter) {
+    $count_query .= " AND area_id = ?";
+    $count_params[] = $area_filter;
+    $count_types .= "i";
+}
 if ($status_filter !== null && $status_filter !== '') {
     $is_active_val = ($status_filter === 'active') ? 1 : 0;
-    $count_query .= " AND is_active = $is_active_val";
+    $count_query .= " AND is_active = ?";
+    $count_params[] = $is_active_val;
+    $count_types .= "i";
 }
 if ($search) {
-    $search_safe = $conn->real_escape_string($search);
-    $count_query .= " AND (first_name LIKE '%$search_safe%' OR last_name LIKE '%$search_safe%' OR email LIKE '%$search_safe%' OR username LIKE '%$search_safe%')";
+    $count_query .= " AND (first_name LIKE ? OR last_name LIKE ? OR email LIKE ? OR username LIKE ?)";
+    $search_param = "%$search%";
+    $count_params[] = $search_param;
+    $count_params[] = $search_param;
+    $count_params[] = $search_param;
+    $count_params[] = $search_param;
+    $count_types .= "ssss";
 }
+
 $total_rows = 0;
-$count_res = $conn->query($count_query);
-if ($count_res) {
-    $total_rows = (int)$count_res->fetch_row()[0];
+$count_stmt = $conn->prepare($count_query);
+if ($count_stmt) {
+    if (!empty($count_params)) {
+        $count_stmt->bind_param($count_types, ...$count_params);
+    }
+    $count_stmt->execute();
+    $count_res = dfps_fetch_assoc($count_stmt);
+    if ($count_res) {
+        $total_rows = (int)$count_res['total'];
+    }
+    $count_stmt->close();
 }
 $total_pages = ceil($total_rows / $limit);
 
@@ -272,7 +299,7 @@ include __DIR__ . '/../includes/universal_header.php';
                                         <div class="d-flex align-items-center gap-3">
                                             <div class="rounded-circle bg-light d-flex align-items-center justify-content-center overflow-hidden" style="width: 48px; height: 48px; border: 2px solid #eef0f2;">
                                                 <?php if (!empty($user['profile_picture'])): ?>
-                                                    <img src="../<?php echo $user['profile_picture']; ?>" class="w-100 h-100" style="object-fit: cover;">
+                                                    <img src="<?php echo $user['profile_picture']; ?>" class="w-100 h-100" style="object-fit: cover;">
                                                 <?php else: ?>
                                                     <i class="bi bi-person-circle text-secondary" style="font-size: 32px;"></i>
                                                 <?php endif; ?>
@@ -305,7 +332,7 @@ include __DIR__ . '/../includes/universal_header.php';
                                     </td>
                                     <td class="text-end pe-4">
                                         <div class="btn-group shadow-sm rounded-pill overflow-hidden">
-                                            <a href="message.php?receiver_id=<?php echo $user['id']; ?>" class="btn btn-sm btn-white border" title="Message User"><i class="bi bi-chat-dots"></i></a>
+                                            <a href="da/message.php?receiver_id=<?php echo $user['id']; ?>" class="btn btn-sm btn-white border" title="Message User"><i class="bi bi-chat-dots"></i></a>
                                             <button type="button" class="btn btn-sm btn-white border send-sms-btn" 
                                                     data-id="<?php echo $user['id']; ?>" 
                                                     data-name="<?php echo htmlspecialchars($user['first_name'] . ' ' . $user['last_name']); ?>"
@@ -314,16 +341,16 @@ include __DIR__ . '/../includes/universal_header.php';
                                                 <i class="bi bi-phone"></i>
                                             </button>
                                             <?php if($user['role'] === 'FARMER'): ?>
-                                                <a href="listings.php?farmer_id=<?php echo $user['id']; ?>" class="btn btn-sm btn-white border" title="View Listings"><i class="bi bi-grid-3x3"></i></a>
+                                                <a href="da/listings.php?farmer_id=<?php echo $user['id']; ?>" class="btn btn-sm btn-white border" title="View Listings"><i class="bi bi-grid-3x3"></i></a>
                                             <?php endif; ?>
                                             
                                             <?php if ($can_toggle): ?>
-                                            <a href="../action/DA/toggle_user.php?id=<?php echo $user['id']; ?>&status=<?php echo $user['is_active'] ? '0' : '1'; ?>&role=<?php echo $role_filter; ?>" 
+                                            <button type="button" 
                                                class="btn btn-sm <?php echo $user['is_active'] ? 'btn-outline-danger' : 'btn-outline-success'; ?> border" 
-                                               onclick="return confirm('<?php echo $user['is_active'] ? 'Deactivate' : 'Activate'; ?> this user?')" 
+                                               onclick="toggleUser(<?php echo $user['id']; ?>, <?php echo $user['is_active'] ? '0' : '1'; ?>)" 
                                                title="<?php echo $user['is_active'] ? 'Deactivate' : 'Activate'; ?> Account">
                                                 <i class="bi <?php echo $user['is_active'] ? 'bi-person-x-fill' : 'bi-person-check-fill'; ?>"></i> <?php echo $user['is_active'] ? 'Deactivate' : 'Activate'; ?>
-                                            </a>
+                                            </button>
                                             <?php endif; ?>
                                         </div>
                                     </td>
@@ -361,6 +388,7 @@ include __DIR__ . '/../includes/universal_header.php';
                 </div>
 
                 <form id="individualSmsForm">
+                    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(get_csrf_token()); ?>">
                     <input type="hidden" name="user_id" id="smsUserId">
                     
                     <div class="mb-4">
@@ -421,6 +449,34 @@ include __DIR__ . '/../includes/universal_header.php';
         toast.show();
     }
 
+    // Toggle User Status via POST
+    function toggleUser(userId, newStatus) {
+        if (!confirm(`${newStatus == 1 ? 'Activate' : 'Deactivate'} this user account?`)) return;
+
+        const formData = new FormData();
+        formData.append('id', userId);
+        formData.append('status', newStatus);
+        formData.append('csrf_token', window.CSRF_TOKEN);
+
+        fetch('action/DA/toggle_user.php', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showNotification('Account Updated', data.message, 'success');
+                fetchUsers(); // Refresh the list
+            } else {
+                showNotification('Update Failed', data.error, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification('System Error', 'An unexpected error occurred.', 'error');
+        });
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
         // ... (existing modal/form references)
         const individualSmsModal = new bootstrap.Modal(document.getElementById('individualSmsModal'));
@@ -467,7 +523,7 @@ include __DIR__ . '/../includes/universal_header.php';
 
             const formData = new FormData(this);
 
-            fetch('../action/DA/send_sms.php', {
+            fetch('action/DA/send_sms.php', {
                 method: 'POST',
                 body: formData
             })
@@ -547,7 +603,7 @@ include __DIR__ . '/../includes/universal_header.php';
                 page: page
             });
 
-            fetch(`get_users.php?${params.toString()}`)
+            fetch(`da/get_users.php?${params.toString()}`)
                 .then(response => response.json())
                 .then(data => {
                     updateTable(data);
@@ -568,12 +624,12 @@ include __DIR__ . '/../includes/universal_header.php';
 
             let html = '';
             users.forEach(user => {
-                const fullName = `${user.first_name} ${user.last_name}`;
+                const fullName = escapeHTML(`${user.first_name} ${user.last_name}`);
                 const profilePic = user.profile_picture 
-                    ? `<img src="../${user.profile_picture}" class="w-100 h-100" style="object-fit: cover;">`
+                    ? `<img src="${escapeHTML(user.profile_picture)}" class="w-100 h-100" style="object-fit: cover;">`
                     : '<i class="bi bi-person-circle text-secondary" style="font-size: 32px;"></i>';
                 
-                const roleBadge = `<span class="badge bg-light text-dark border" style="font-size: 0.7rem;">${user.role}</span>`;
+                const roleBadge = `<span class="badge bg-light text-dark border" style="font-size: 0.7rem;">${escapeHTML(user.role)}</span>`;
                 const postBadge = user.role === 'FARMER' 
                     ? `<span class="badge bg-success bg-opacity-10 text-success" style="font-size: 0.7rem;">${user.post_count} Posts</span>`
                     : '';
@@ -588,7 +644,7 @@ include __DIR__ . '/../includes/universal_header.php';
                 const newStatus = user.is_active == 1 ? '0' : '1';
 
                 const farmerListingBtn = user.role === 'FARMER'
-                    ? `<a href="listings.php?farmer_id=${user.id}" class="btn btn-sm btn-white border" title="View Listings"><i class="bi bi-grid-3x3"></i></a>`
+                    ? `<a href="da/listings.php?farmer_id=${user.id}" class="btn btn-sm btn-white border" title="View Listings"><i class="bi bi-grid-3x3"></i></a>`
                     : '';
 
                 // Permission logic for toggle button
@@ -600,12 +656,12 @@ include __DIR__ . '/../includes/universal_header.php';
                 }
 
                 const toggleBtnHtml = canToggle 
-                    ? `<a href="../action/DA/toggle_user.php?id=${user.id}&status=${newStatus}&role=${currentRole}" 
+                    ? `<button type="button" 
                           class="btn btn-sm ${toggleBtnClass} border" 
-                          onclick="return confirm('${toggleText} this user?')" 
+                          onclick="toggleUser(${user.id}, ${newStatus})" 
                           title="${toggleText} Account">
                            <i class="bi ${toggleIcon}"></i> ${toggleText}
-                       </a>`
+                       </button>`
                     : '';
 
                 html += `
@@ -625,21 +681,21 @@ include __DIR__ . '/../includes/universal_header.php';
                             </div>
                         </td>
                         <td>
-                            <div class="text-dark small"><i class="bi bi-envelope me-1"></i> ${user.email}</div>
-                            <div class="text-muted small mt-1"><i class="bi bi-telephone me-1"></i> ${user.phone}</div>
+                            <div class="text-dark small"><i class="bi bi-envelope me-1"></i> ${escapeHTML(user.email)}</div>
+                            <div class="text-muted small mt-1"><i class="bi bi-telephone me-1"></i> ${escapeHTML(user.phone)}</div>
                         </td>
                         <td>
-                            <div class="small"><i class="bi bi-geo-alt-fill text-danger me-1"></i> ${(user.barangay ? user.barangay + ', ' : '') + (user.area_name || 'Not set')}</div>
+                            <div class="small"><i class="bi bi-geo-alt-fill text-danger me-1"></i> ${escapeHTML((user.barangay ? user.barangay + ', ' : '') + (user.area_name || 'Not set'))}</div>
                             <div class="text-muted" style="font-size: 0.7rem;">Member since ${new Date(user.created_at).toLocaleDateString('en-US', {month: 'short', year: 'numeric'})}</div>
                         </td>
                         <td>${statusBadge}</td>
                         <td class="text-end pe-4">
                             <div class="btn-group shadow-sm rounded-pill overflow-hidden">
-                                <a href="message.php?receiver_id=${user.id}" class="btn btn-sm btn-white border" title="Message User"><i class="bi bi-chat-dots"></i></a>
+                                <a href="da/message.php?receiver_id=${user.id}" class="btn btn-sm btn-white border" title="Message User"><i class="bi bi-chat-dots"></i></a>
                                 <button type="button" class="btn btn-sm btn-white border send-sms-btn" 
                                         data-id="${user.id}" 
                                         data-name="${fullName}"
-                                        data-phone="${user.phone}"
+                                        data-phone="${escapeHTML(user.phone)}"
                                         title="Send Individual SMS">
                                     <i class="bi bi-phone"></i>
                                 </button>
@@ -678,7 +734,15 @@ include __DIR__ . '/../includes/universal_header.php';
             }
         }
 
+        const searchBtn = document.querySelector('.search-btn');
+
         window.DA_fetchUsers = fetchUsers;
+
+        if (searchBtn) {
+            searchBtn.addEventListener('click', () => {
+                fetchUsers();
+            });
+        }
 
         liveSearch.addEventListener('input', () => {
             clearTimeout(debounceTimer);
@@ -717,3 +781,4 @@ include __DIR__ . '/../includes/universal_header.php';
     });
 </script>
 <?php include '../includes/universal_footer.php'; ?>
+

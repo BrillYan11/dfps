@@ -22,27 +22,48 @@ $params = [];
 $types = "";
 
 // 1. Total Count Query
-$count_query = "SELECT COUNT(*) FROM users u WHERE 1=1";
+$count_query = "SELECT COUNT(*) as total FROM users u WHERE 1=1";
+$count_params = [];
+$count_types = "";
+
 if ($role_filter) {
-    $count_query .= " AND u.role = '$role_filter'";
+    $count_query .= " AND u.role = ?";
+    $count_params[] = $role_filter;
+    $count_types .= "s";
 }
 if ($area_filter) {
-    $count_query .= " AND u.area_id = $area_filter";
+    $count_query .= " AND u.area_id = ?";
+    $count_params[] = $area_filter;
+    $count_types .= "i";
 }
 if ($status_filter !== null && $status_filter !== '') {
     $is_active_val = ($status_filter === 'active') ? 1 : 0;
-    $count_query .= " AND u.is_active = $is_active_val";
+    $count_query .= " AND u.is_active = ?";
+    $count_params[] = $is_active_val;
+    $count_types .= "i";
 }
 if ($search) {
-    $search_safe = $conn->real_escape_string($search);
-    $count_query .= " AND (u.first_name LIKE '%$search_safe%' OR u.last_name LIKE '%$search_safe%' OR u.email LIKE '%$search_safe%' OR u.username LIKE '%$search_safe%')";
+    $count_query .= " AND (u.first_name LIKE ? OR u.last_name LIKE ? OR u.email LIKE ? OR u.username LIKE ?)";
+    $search_param = "%$search%";
+    $count_params[] = $search_param;
+    $count_params[] = $search_param;
+    $count_params[] = $search_param;
+    $count_params[] = $search_param;
+    $count_types .= "ssss";
 }
 
 $total_rows = 0;
-$count_res = $conn->query($count_query);
-if ($count_res) {
-    $count_row = $count_res->fetch_row();
-    $total_rows = (int)($count_row[0] ?? 0);
+$count_stmt = $conn->prepare($count_query);
+if ($count_stmt) {
+    if (!empty($count_params)) {
+        $count_stmt->bind_param($count_types, ...$count_params);
+    }
+    $count_stmt->execute();
+    $count_res = dfps_fetch_assoc($count_stmt);
+    if ($count_res) {
+        $total_rows = (int)($count_res['total'] ?? 0);
+    }
+    $count_stmt->close();
 }
 $total_pages = ceil($total_rows / $limit);
 
@@ -109,3 +130,4 @@ echo json_encode([
         'total_rows' => $total_rows
     ]
 ]);
+

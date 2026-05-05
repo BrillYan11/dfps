@@ -1,6 +1,7 @@
 <?php
-session_start();
 include 'includes/db.php';
+
+csrf_guard();
 
 $appUrl = static function (string $path = ''): string {
     if (function_exists('dfps_url')) {
@@ -69,7 +70,7 @@ include 'includes/universal_header.php';
 <div class="login-page">
     <div class="login-card p-4">
         <div class="text-center">
-            <img src="pic/image/Da_logo.svg" alt="DA Logo" class="login-logo">
+            <img src="<?php echo $appUrl('pic/image/Da_logo.svg'); ?>" alt="DA Logo" class="login-logo">
             <h3 class="fw-bold mb-4">Login to DFPS</h3>
         </div>
         
@@ -88,6 +89,7 @@ include 'includes/universal_header.php';
                 </script>
             <?php endif; ?>
             <form action="<?php echo $appUrl('login'); ?>" method="POST">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(get_csrf_token()); ?>">
                 <div class="mb-3">
                     <label for="email" class="form-label">Email address</label>
                     <input type="email" class="form-control" id="email" name="email" placeholder="Enter your email" required>

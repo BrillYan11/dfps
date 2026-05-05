@@ -1,11 +1,13 @@
 <?php
 include 'includes/db.php';
+require_once 'includes/url_helpers.php';
+
+csrf_guard();
 
 $appUrl = static function (string $path = ''): string {
     if (function_exists('dfps_url')) {
         return dfps_url($path);
     }
-
     $normalized = trim(str_replace('\\', '/', $path), '/');
     return $normalized === '' ? '/' : '/' . $normalized;
 };
@@ -15,26 +17,30 @@ $success_message = '';
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     // Sanitize and retrieve form data
-    $first_name = filter_input(INPUT_POST, 'first_name', FILTER_UNSAFE_RAW);
-    $last_name = filter_input(INPUT_POST, 'last_name', FILTER_UNSAFE_RAW);
-    $username = filter_input(INPUT_POST, 'username', FILTER_UNSAFE_RAW);
-    $address = filter_input(INPUT_POST, 'address', FILTER_UNSAFE_RAW);
-    $barangay = filter_input(INPUT_POST, 'barangay_name', FILTER_UNSAFE_RAW);
+    $first_name = trim(filter_input(INPUT_POST, 'first_name', FILTER_UNSAFE_RAW));
+    $last_name = trim(filter_input(INPUT_POST, 'last_name', FILTER_UNSAFE_RAW));
+    $username = trim(filter_input(INPUT_POST, 'username', FILTER_UNSAFE_RAW));
+    $address = trim(filter_input(INPUT_POST, 'address', FILTER_UNSAFE_RAW));
+    $barangay = trim(filter_input(INPUT_POST, 'barangay_name', FILTER_UNSAFE_RAW));
     $email = filter_input(INPUT_POST, 'email', FILTER_VALIDATE_EMAIL);
-    $phone = filter_input(INPUT_POST, 'phone', FILTER_UNSAFE_RAW);
+    $phone = trim(filter_input(INPUT_POST, 'phone', FILTER_UNSAFE_RAW));
     $password = $_POST['password'] ?? '';
     $confirm_password = $_POST['confirm_password'] ?? '';
     $role = filter_input(INPUT_POST, 'role', FILTER_UNSAFE_RAW);
-    $city_name = filter_input(INPUT_POST, 'city_name', FILTER_UNSAFE_RAW);
+    $city_name = trim(filter_input(INPUT_POST, 'city_name', FILTER_UNSAFE_RAW));
     $terms_agreed = isset($_POST['terms_agreed']);
 
     // Basic validation
-    if (!$first_name || !$last_name || !$username || !$address || !$barangay || !$email || !$phone || !$password || !$role || !$city_name) {
+    if (empty($first_name) || empty($last_name) || empty($username) || empty($address) || empty($barangay) || !$email || empty($phone) || empty($password) || empty($role) || empty($city_name)) {
         $error_message = "Please fill in all required fields correctly.";
     } elseif (!$terms_agreed) {
         $error_message = "You must agree to the Terms and Conditions to register.";
     } elseif ($password !== $confirm_password) {
         $error_message = "Passwords do not match.";
+    } elseif (strlen($password) < 8) {
+        $error_message = "Password must be at least 8 characters long.";
+    } elseif (!in_array($role, ['BUYER', 'FARMER'])) {
+        $error_message = "Invalid role selected.";
     } else {
         // Ensure the area exists in the database
         $stmt = $conn->prepare("INSERT IGNORE INTO areas (name) VALUES (?)");
@@ -118,6 +124,7 @@ include 'includes/universal_header.php';
         <?php endif; ?>
 
         <form method="POST" action="<?php echo $appUrl('register'); ?>">
+            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(get_csrf_token()); ?>">
             <h5 class="form-section-title">Personal Information</h5>
 
             <!-- Last Name & First Name -->
@@ -234,5 +241,5 @@ include 'includes/universal_header.php';
 
 <?php include 'modal/registration_modal.php'; ?>
 
-<script src="bootstrap/js/location.js"></script>
+<script src="bootstrap/js/location.js" defer></script>
 <?php include 'includes/universal_footer.php'; ?>

@@ -3,8 +3,10 @@ session_start();
 include '../includes/db.php';
 include '../includes/pagination.php';
 
+require_once '../includes/url_helpers.php';
+
 if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['DA', 'DA_SUPER_ADMIN'])) {
-    header("Location: ../login.php");
+    header("Location: " . dfps_helper_url('login'));
     exit;
 }
 
@@ -17,15 +19,38 @@ $offset = ($page - 1) * $limit;
 $listings = [];
 
 // 1. Analytics for header
-$active_listings = $conn->query("SELECT COUNT(*) FROM posts WHERE status = 'ACTIVE'")->fetch_row()[0];
-$sold_listings = $conn->query("SELECT COUNT(*) FROM posts WHERE status = 'SOLD'")->fetch_row()[0];
-$flagged_listings = $conn->query("SELECT COUNT(*) FROM posts WHERE status = 'FLAGGED'")->fetch_row()[0];
+$active_listings = $conn->query("SELECT COUNT(*) FROM posts WHERE status = 'ACTIVE' AND is_deleted = 0")->fetch_row()[0];
+$sold_listings = $conn->query("SELECT COUNT(*) FROM posts WHERE status = 'SOLD' AND is_deleted = 0")->fetch_row()[0];
+$flagged_listings = $conn->query("SELECT COUNT(*) FROM posts WHERE status = 'FLAGGED' AND is_deleted = 0")->fetch_row()[0];
 
 // 2. Count total for pagination
-$count_query = "SELECT COUNT(*) FROM posts WHERE 1=1";
-if ($status_filter) $count_query .= " AND status = '$status_filter'";
-if ($farmer_id) $count_query .= " AND farmer_id = $farmer_id";
-$total_rows = $conn->query($count_query)->fetch_row()[0];
+$count_query = "SELECT COUNT(*) as total FROM posts WHERE is_deleted = 0";
+$c_params = [];
+$c_types = "";
+
+if ($status_filter) {
+    $count_query .= " AND status = ?";
+    $c_params[] = $status_filter;
+    $c_types .= "s";
+}
+if ($farmer_id) {
+    $count_query .= " AND farmer_id = ?";
+    $c_params[] = $farmer_id;
+    $c_types .= "i";
+}
+
+$total_rows = 0;
+if (!empty($c_params)) {
+    $c_stmt = $conn->prepare($count_query);
+    $c_stmt->bind_param($c_types, ...$c_params);
+    $c_stmt->execute();
+    $c_res = dfps_fetch_assoc($c_stmt);
+    $total_rows = (int)($c_res['total'] ?? 0);
+    $c_stmt->close();
+} else {
+    $c_res = $conn->query($count_query)->fetch_assoc();
+    $total_rows = (int)($c_res['total'] ?? 0);
+}
 $total_pages = ceil($total_rows / $limit);
 
 // 3. Main query
@@ -35,7 +60,7 @@ $query = "
     JOIN produce pr ON p.produce_id = pr.id 
     JOIN users u ON p.farmer_id = u.id 
     LEFT JOIN areas a ON p.area_id = a.id 
-    WHERE 1=1
+    WHERE p.is_deleted = 0
 ";
 $params = [];
 $types = "";
@@ -119,10 +144,10 @@ include '../includes/universal_header.php';
             </h5>
             
             <div class="d-flex gap-2">
-                <a href="listings.php" class="btn btn-sm <?php echo empty($status_filter) ? 'btn-secondary' : 'btn-outline-secondary'; ?> rounded-pill px-3">All</a>
-                <a href="listings.php?status=ACTIVE" class="btn btn-sm <?php echo ($status_filter === 'ACTIVE') ? 'btn-success' : 'btn-outline-success'; ?> rounded-pill px-3">Active</a>
-                <a href="listings.php?status=SOLD" class="btn btn-sm <?php echo ($status_filter === 'SOLD') ? 'btn-info text-white' : 'btn-outline-info'; ?> rounded-pill px-3">Sold</a>
-                <a href="listings.php?status=FLAGGED" class="btn btn-sm <?php echo ($status_filter === 'FLAGGED') ? 'btn-danger' : 'btn-outline-danger'; ?> rounded-pill px-3">Flagged</a>
+                <a href="da/listings.php" class="btn btn-sm <?php echo empty($status_filter) ? 'btn-secondary' : 'btn-outline-secondary'; ?> rounded-pill px-3">All</a>
+                <a href="da/listings.php?status=ACTIVE" class="btn btn-sm <?php echo ($status_filter === 'ACTIVE') ? 'btn-success' : 'btn-outline-success'; ?> rounded-pill px-3">Active</a>
+                <a href="da/listings.php?status=SOLD" class="btn btn-sm <?php echo ($status_filter === 'SOLD') ? 'btn-info text-white' : 'btn-outline-info'; ?> rounded-pill px-3">Sold</a>
+                <a href="da/listings.php?status=FLAGGED" class="btn btn-sm <?php echo ($status_filter === 'FLAGGED') ? 'btn-danger' : 'btn-outline-danger'; ?> rounded-pill px-3">Flagged</a>
             </div>
         </div>
         <div class="card-body p-0">
@@ -148,7 +173,7 @@ include '../includes/universal_header.php';
                                 $img_q->bind_param("i", $listing['id']);
                                 $img_q->execute();
                                 $img_res = dfps_fetch_assoc($img_q);
-                                $thumb = $img_res ? '../' . $img_res['file_path'] : '../pic/no-image.svg';
+                                $thumb = $img_res ? $img_res['file_path'] : 'pic/no-image.svg';
                                 $img_q->close();
                             ?>
                                 <tr>
@@ -201,3 +226,4 @@ include '../includes/universal_header.php';
 </main>
 
 <?php include '../includes/universal_footer.php'; ?>
+

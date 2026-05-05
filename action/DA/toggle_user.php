@@ -3,14 +3,20 @@ session_start();
 include '../../includes/db.php';
 include_once '../../includes/Logger.php';
 
+header('Content-Type: application/json');
+
+// Use CSRF guard for AJAX
+csrf_guard_ajax();
+
 if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['DA', 'DA_SUPER_ADMIN'])) {
-    header("Location: ../../login.php");
+    echo json_encode(['success' => false, 'error' => 'Unauthorized access.']);
     exit;
 }
 
-$user_id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
-$status = filter_input(INPUT_GET, 'status', FILTER_VALIDATE_INT);
-$role_redirect = filter_input(INPUT_GET, 'role', FILTER_UNSAFE_RAW);
+// Support both POST (new) and GET (legacy fallback, but now guarded by CSRF which mostly requires POST)
+$method = $_SERVER['REQUEST_METHOD'];
+$user_id = filter_input($method === 'POST' ? INPUT_POST : INPUT_GET, 'id', FILTER_VALIDATE_INT);
+$status = filter_input($method === 'POST' ? INPUT_POST : INPUT_GET, 'status', FILTER_VALIDATE_INT);
 
 if ($user_id !== null && $status !== null) {
     // Get user info for logging before update
@@ -20,6 +26,10 @@ if ($user_id !== null && $status !== null) {
     $target_user = dfps_fetch_assoc($user_info_stmt);
     $user_info_stmt->close();
 
+    if (!$target_user) {
+        echo json_encode(['success' => false, 'error' => 'User not found.']);
+        exit;
+    }
 
     $current_role = $_SESSION['role'];
     
@@ -32,18 +42,24 @@ if ($user_id !== null && $status !== null) {
     }
     
     $stmt->bind_param("ii", $status, $user_id);
-    if ($stmt->execute() && $stmt->affected_rows > 0 && $target_user) {
-        $action_type = ($status == 1) ? "Activated" : "Deactivated";
-        $log_msg = "$action_type user account: " . $target_user['first_name'] . " " . $target_user['last_name'] . " (" . $target_user['role'] . ")";
-        Logger::log($conn, $_SESSION['user_id'], $log_msg);
+    if ($stmt->execute()) {
+        if ($stmt->affected_rows > 0) {
+            $action_type = ($status == 1) ? "Activated" : "Deactivated";
+            $log_msg = "$action_type user account: " . $target_user['first_name'] . " " . $target_user['last_name'] . " (" . $target_user['role'] . ")";
+            Logger::log($conn, $_SESSION['user_id'], $log_msg);
+            
+            echo json_encode([
+                'success' => true, 
+                'message' => "User account successfully " . strtolower($action_type) . "."
+            ]);
+        } else {
+            echo json_encode(['success' => false, 'error' => 'No changes made or insufficient permissions.']);
+        }
+    } else {
+        echo json_encode(['success' => false, 'error' => 'Database error.']);
     }
     $stmt->close();
+} else {
+    echo json_encode(['success' => false, 'error' => 'Invalid parameters.']);
 }
-
-$redirect_url = "../../da/users.php";
-if ($role_redirect) {
-    $redirect_url .= "?role=" . $role_redirect;
-}
-
-header("Location: " . $redirect_url);
 exit;

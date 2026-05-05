@@ -76,6 +76,9 @@ if (isset($_GET['action']) && $_GET['action'] === 'download') {
 
 // Handle Restore Action
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['restore'])) {
+    if (!validate_csrf_token($_POST['csrf_token'] ?? '')) {
+        die("CSRF token validation failed.");
+    }
     if (isset($_FILES['backup_file']) && $_FILES['backup_file']['error'] === UPLOAD_ERR_OK) {
         $file_content = file_get_contents($_FILES['backup_file']['tmp_name']);
         
@@ -121,7 +124,7 @@ include '../includes/universal_header.php';
                         <i class="bi bi-cloud-download text-primary display-4 mb-3"></i>
                         <h4>Download Backup</h4>
                         <p class="text-muted">Generate a full SQL backup of the current database.</p>
-                        <a href="backup.php?action=download" class="btn btn-primary btn-lg rounded-pill px-5 fw-bold mt-2">
+                        <a href="da/backup.php?action=download" class="btn btn-primary btn-lg rounded-pill px-5 fw-bold mt-2">
                             <i class="bi bi-download me-2"></i> Download .SQL File
                         </a>
                     </div>
@@ -134,6 +137,7 @@ include '../includes/universal_header.php';
                         </div>
                         
                         <form method="POST" enctype="multipart/form-data">
+                            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(get_csrf_token()); ?>">
                             <div class="mb-3">
                                 <label class="form-label fw-bold">Upload Backup File (.sql)</label>
                                 <input type="file" name="backup_file" class="form-control rounded-3 shadow-none border-2" accept=".sql" required>
@@ -152,3 +156,4 @@ include '../includes/universal_header.php';
 </main>
 
 <?php include '../includes/universal_footer.php'; ?>
+

@@ -14,16 +14,44 @@ $date_to = filter_input(INPUT_GET, 'to', FILTER_UNSAFE_RAW);
 $report_title = "System Report";
 $data = [];
 
-// Helper for date filtering
+// Improved helper for date filtering
+$params = [];
+$types = "";
 $date_clause = "";
-if ($date_from && $date_to) {
-    $date_clause = " AND created_at BETWEEN '$date_from 00:00:00' AND '$date_to 23:59:59'";
+if ($date_from || $date_to) {
+    if ($date_from && $date_to) {
+        $date_clause = " AND created_at BETWEEN ? AND ?";
+        $params[] = "$date_from 00:00:00";
+        $params[] = "$date_to 23:59:59";
+        $types .= "ss";
+    } elseif ($date_from) {
+        $date_clause = " AND created_at >= ?";
+        $params[] = "$date_from 00:00:00";
+        $types .= "s";
+    } elseif ($date_to) {
+        $date_clause = " AND created_at <= ?";
+        $params[] = "$date_to 23:59:59";
+        $types .= "s";
+    }
+}
+
+// Handle CSV Export
+if (isset($_GET['export']) && $_GET['export'] === 'csv') {
+    // We re-run the switch logic to get the data, then output CSV
+    // (This part will be handled within the switch or after)
 }
 
 switch ($report_type) {
     case 'users':
         $report_title = "User Directory & Statistics";
-        $data = dfps_fetch_all($conn->query("SELECT u.*, a.name as area_name FROM users u LEFT JOIN areas a ON u.area_id = a.id WHERE role != 'DA' $date_clause ORDER BY role, last_name"));
+        $query = "SELECT u.*, a.name as area_name FROM users u LEFT JOIN areas a ON u.area_id = a.id WHERE role != 'DA' $date_clause ORDER BY role, last_name";
+        $stmt = $conn->prepare($query);
+        if (!empty($params)) {
+            $stmt->bind_param($types, ...$params);
+        }
+        $stmt->execute();
+        $data = dfps_fetch_all($stmt);
+        $stmt->close();
         break;
     
     case 'produce':
@@ -33,7 +61,7 @@ switch ($report_type) {
 
     case 'listings':
         $report_title = "Market Listing Activity Report";
-        $data = dfps_fetch_all($conn->query("
+        $query = "
             SELECT p.*, pr.name as produce_name, u.first_name, u.last_name, a.name as area_name 
             FROM posts p 
             JOIN produce pr ON p.produce_id = pr.id 
@@ -41,7 +69,14 @@ switch ($report_type) {
             LEFT JOIN areas a ON p.area_id = a.id 
             WHERE 1=1 $date_clause 
             ORDER BY p.created_at DESC
-        "));
+        ";
+        $stmt = $conn->prepare($query);
+        if (!empty($params)) {
+            $stmt->bind_param($types, ...$params);
+        }
+        $stmt->execute();
+        $data = dfps_fetch_all($stmt);
+        $stmt->close();
         break;
 
     case 'price_analysis':
@@ -55,20 +90,55 @@ switch ($report_type) {
             GROUP BY pr.id, pr.name, pr.srp
             ORDER BY pr.name
         ";
-        $result = $conn->query($query);
-        if ($result) {
-            $data = dfps_fetch_all($result);
+        $stmt = $conn->prepare($query);
+        if (!empty($params)) {
+            $stmt->bind_param($types, ...$params);
         }
+        $stmt->execute();
+        $data = dfps_fetch_all($stmt);
+        $stmt->close();
         break;
 
     default:
-        $report_title = "DA System Overview";
-        break;
-}
+    $report_title = "DA System Overview";
+    break;
+    }
 
-include '../includes/universal_header.php';
-?>
+    // Handle CSV Export
+    if (isset($_GET['export']) && $_GET['export'] === 'csv' && !empty($data)) {
+    header('Content-Type: text/csv');
+    header('Content-Disposition: attachment; filename="' . strtolower(str_replace(' ', '_', $report_title)) . '_' . date('Ymd') . '.csv"');
+    $output = fopen('php://output', 'w');
 
+    if ($report_type === 'users') {
+    fputcsv($output, ['Full Name', 'Role', 'Location', 'Email', 'Phone', 'Status']);
+    foreach ($data as $u) {
+        fputcsv($output, [$u['first_name'] . ' ' . $u['last_name'], $u['role'], $u['area_name'] ?? '', $u['email'], $u['phone'], $u['is_active'] ? 'Active' : 'Deactivated']);
+    }
+    } elseif ($report_type === 'produce') {
+    fputcsv($output, ['Produce Name', 'Unit', 'SRP', 'Status']);
+    foreach ($data as $p) {
+        fputcsv($output, [$p['name'], $p['unit'], $p['srp'], $p['is_active'] ? 'Active' : 'Inactive']);
+    }
+    } elseif ($report_type === 'listings') {
+    fputcsv($output, ['Post Title', 'Produce', 'Farmer', 'Location', 'Price', 'Unit', 'Status', 'Date Posted']);
+    foreach ($data as $l) {
+        fputcsv($output, [$l['title'], $l['produce_name'], $l['first_name'] . ' ' . $l['last_name'], $l['area_name'] ?? '', $l['price'], $l['unit'], $l['status'], $l['created_at']]);
+    }
+    } elseif ($report_type === 'price_analysis') {
+    fputcsv($output, ['Produce', 'SRP', 'Avg Market Price', 'Min Price', 'Max Price', 'Listings', 'Variance']);
+    foreach ($data as $pa) {
+        $has_data = !is_null($pa['avg_market_price']);
+        $variance = $has_data ? ($pa['avg_market_price'] - $pa['srp']) : 0;
+        fputcsv($output, [$pa['name'], $pa['srp'], $pa['avg_market_price'] ?? 'N/A', $pa['min_price'] ?? 'N/A', $pa['max_price'] ?? 'N/A', $pa['listing_count'], $variance]);
+    }
+    }
+    fclose($output);
+    exit;
+    }
+
+    include '../includes/universal_header.php';
+    ?>
 <style>
     @media print {
         .no-print, .app-header, .app-sidebar, .sidebar-overlay, .chat-footer {
@@ -108,15 +178,56 @@ include '../includes/universal_header.php';
             <p class="text-muted">Generate and export official Department of Agriculture data.</p>
         </div>
         <div class="d-flex gap-2">
+            <?php if ($report_type !== 'overview'): ?>
+            <a href="da/reports?type=<?php echo htmlspecialchars($report_type); ?>&from=<?php echo htmlspecialchars($date_from ?? ''); ?>&to=<?php echo htmlspecialchars($date_to ?? ''); ?>&export=csv" class="btn btn-outline-success rounded-pill px-4">
+                <i class="bi bi-file-earmark-spreadsheet-fill me-2"></i> Export CSV
+            </a>
+            <?php endif; ?>
             <button onclick="window.print()" class="btn btn-primary rounded-pill px-4">
                 <i class="bi bi-printer-fill me-2"></i> Print Report
             </button>
         </div>
     </div>
 
+    <!-- Filters and Search -->
+    <div class="card border-0 shadow-sm rounded-4 mb-4 no-print">
+        <div class="card-body p-4">
+            <form method="GET" action="da/reports" class="row g-3 align-items-end">
+                <input type="hidden" name="type" value="<?php echo htmlspecialchars($report_type); ?>">
+                
+                <div class="col-md-4">
+                    <label class="form-label small fw-bold text-muted">Search within report</label>
+                    <div class="input-group border rounded-pill overflow-hidden">
+                        <span class="input-group-text border-0 bg-transparent ps-3"><i class="bi bi-search"></i></span>
+                        <input type="text" id="reportSearch" class="form-control border-0 bg-transparent" placeholder="Type to filter rows...">
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label small fw-bold text-muted">From Date</label>
+                    <input type="date" name="from" class="form-control rounded-pill" value="<?php echo htmlspecialchars($date_from ?? ''); ?>">
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label small fw-bold text-muted">To Date</label>
+                    <input type="date" name="to" class="form-control rounded-pill" value="<?php echo htmlspecialchars($date_to ?? ''); ?>">
+                </div>
+
+                <div class="col-md-2 d-flex gap-2">
+                    <button type="submit" class="btn btn-success rounded-pill flex-grow-1">
+                        <i class="bi bi-filter me-1"></i> Filter
+                    </button>
+                    <a href="da/reports?type=<?php echo htmlspecialchars($report_type); ?>" class="btn btn-outline-secondary rounded-pill" title="Reset Filters">
+                        <i class="bi bi-arrow-counterclockwise"></i>
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div class="row g-4 mb-5 no-print">
         <div class="col-md-3">
-            <a href="reports.php?type=users" class="text-decoration-none">
+            <a href="da/reports?type=users" class="text-decoration-none">
                 <div class="card h-100 border-0 shadow-sm report-card p-3 <?php echo $report_type === 'users' ? 'border-start border-4 border-primary' : ''; ?>">
                     <div class="d-flex align-items-center gap-3">
                         <div class="stat-icon bg-primary bg-opacity-10 text-primary rounded-3 p-2"><i class="bi bi-people-fill"></i></div>
@@ -126,7 +237,7 @@ include '../includes/universal_header.php';
             </a>
         </div>
         <div class="col-md-3">
-            <a href="reports.php?type=produce" class="text-decoration-none">
+            <a href="da/reports?type=produce" class="text-decoration-none">
                 <div class="card h-100 border-0 shadow-sm report-card p-3 <?php echo $report_type === 'produce' ? 'border-start border-4 border-success' : ''; ?>">
                     <div class="d-flex align-items-center gap-3">
                         <div class="stat-icon bg-success bg-opacity-10 text-success rounded-3 p-2"><i class="bi bi-egg-fried"></i></div>
@@ -136,7 +247,7 @@ include '../includes/universal_header.php';
             </a>
         </div>
         <div class="col-md-3">
-            <a href="reports.php?type=listings" class="text-decoration-none">
+            <a href="da/reports?type=listings" class="text-decoration-none">
                 <div class="card h-100 border-0 shadow-sm report-card p-3 <?php echo $report_type === 'listings' ? 'border-start border-4 border-warning' : ''; ?>">
                     <div class="d-flex align-items-center gap-3">
                         <div class="stat-icon bg-warning bg-opacity-10 text-warning rounded-3 p-2"><i class="bi bi-card-list"></i></div>
@@ -146,7 +257,7 @@ include '../includes/universal_header.php';
             </a>
         </div>
         <div class="col-md-3">
-            <a href="reports.php?type=price_analysis" class="text-decoration-none">
+            <a href="da/reports?type=price_analysis" class="text-decoration-none">
                 <div class="card h-100 border-0 shadow-sm report-card p-3 <?php echo $report_type === 'price_analysis' ? 'border-start border-4 border-info' : ''; ?>">
                     <div class="d-flex align-items-center gap-3">
                         <div class="stat-icon bg-info bg-opacity-10 text-info rounded-3 p-2"><i class="bi bi-graph-up-arrow"></i></div>
@@ -162,14 +273,14 @@ include '../includes/universal_header.php';
         <div class="card-body p-5">
             <!-- Report Header -->
             <div class="d-flex justify-content-center align-items-center mb-5 pb-4 border-bottom gap-4">
-                <img src="../pic/image/DAlogo.png" alt="DA Logo Left" style="height: 100px;">
+                <img src="<?php echo dfps_helper_url('pic/image/DAlogo.png'); ?>" alt="DA Logo Left" style="height: 100px;">
                 <div class="text-center">
                     <h5 class="fw-bold mb-0 text-success">Republic of the Philippines</h5>
                     <h2 class="fw-bold mb-0 text-success">Department of Agriculture</h2>
                     <p class="mb-0 text-muted">Bureau of Plant Industry</p>
                     <p class="mb-0 text-muted">Direct Farmer-to-Buyer Platform (DFPS)</p>
                 </div>
-                <img src="../pic/image/Department_of_Agriculture_of_the_Philippines.png" alt="DA Logo Right" style="height: 100px;">
+                <img src="<?php echo dfps_helper_url('pic/image/Department_of_Agriculture_of_the_Philippines.png'); ?>" alt="DA Logo Right" style="height: 100px;">
             </div>
 
             <div class="text-center mb-5">
@@ -198,10 +309,10 @@ include '../includes/universal_header.php';
                     <tbody>
                         <?php foreach($data as $u): ?>
                             <tr>
-                                <td><?php echo $u['first_name'] . ' ' . $u['last_name']; ?></td>
-                                <td class="text-center"><span class="badge bg-light text-dark border"><?php echo $u['role']; ?></span></td>
-                                <td><?php echo $u['area_name']; ?></td>
-                                <td><?php echo $u['email']; ?><br><small><?php echo $u['phone']; ?></small></td>
+                                <td><?php echo htmlspecialchars($u['first_name'] . ' ' . $u['last_name']); ?></td>
+                                <td class="text-center"><span class="badge bg-light text-dark border"><?php echo htmlspecialchars($u['role']); ?></span></td>
+                                <td><?php echo htmlspecialchars($u['area_name'] ?? ''); ?></td>
+                                <td><?php echo htmlspecialchars($u['email']); ?><br><small><?php echo htmlspecialchars($u['phone']); ?></small></td>
                                 <td class="text-center"><?php echo $u['is_active'] ? 'Active' : 'Deactivated'; ?></td>
                             </tr>
                         <?php endforeach; ?>
@@ -221,8 +332,8 @@ include '../includes/universal_header.php';
                     <tbody>
                         <?php foreach($data as $p): ?>
                             <tr>
-                                <td class="fw-bold"><?php echo $p['name']; ?></td>
-                                <td class="text-center"><?php echo $p['unit']; ?></td>
+                                <td class="fw-bold"><?php echo htmlspecialchars($p['name']); ?></td>
+                                <td class="text-center"><?php echo htmlspecialchars($p['unit']); ?></td>
                                 <td class="text-center fw-bold text-primary">₱<?php echo number_format($p['srp'], 2); ?></td>
                                 <td class="text-center"><?php echo $p['is_active'] ? 'Active' : 'Inactive'; ?></td>
                             </tr>
@@ -245,11 +356,11 @@ include '../includes/universal_header.php';
                     <tbody>
                         <?php foreach($data as $l): ?>
                             <tr>
-                                <td><?php echo $l['title']; ?><br><small class="text-muted"><?php echo $l['produce_name']; ?></small></td>
-                                <td><?php echo $l['first_name'] . ' ' . $l['last_name']; ?></td>
-                                <td><?php echo $l['area_name']; ?></td>
-                                <td class="text-center fw-bold">₱<?php echo number_format($l['price'], 2); ?> / <?php echo $l['unit']; ?></td>
-                                <td class="text-center"><?php echo $l['status']; ?></td>
+                                <td><?php echo htmlspecialchars($l['title']); ?><br><small class="text-muted"><?php echo htmlspecialchars($l['produce_name']); ?></small></td>
+                                <td><?php echo htmlspecialchars($l['first_name'] . ' ' . $l['last_name']); ?></td>
+                                <td><?php echo htmlspecialchars($l['area_name'] ?? ''); ?></td>
+                                <td class="text-center fw-bold">₱<?php echo number_format($l['price'], 2); ?> / <?php echo htmlspecialchars($l['unit']); ?></td>
+                                <td class="text-center"><?php echo htmlspecialchars($l['status']); ?></td>
                                 <td class="text-center small"><?php echo date('M j, Y', strtotime($l['created_at'])); ?></td>
                             </tr>
                         <?php endforeach; ?>
@@ -275,7 +386,7 @@ include '../includes/universal_header.php';
                             $variance_class = $variance > 0 ? 'text-danger' : ($variance < 0 ? 'text-success' : 'text-muted');
                         ?>
                             <tr>
-                                <td class="fw-bold"><?php echo $pa['name']; ?></td>
+                                <td class="fw-bold"><?php echo htmlspecialchars($pa['name']); ?></td>
                                 <td class="text-center">₱<?php echo number_format($pa['srp'], 2); ?></td>
                                 <td class="text-center fw-bold">
                                     <?php echo $has_data ? '₱' . number_format($pa['avg_market_price'], 2) : '<span class="text-muted small">No Active Listings</span>'; ?>
@@ -283,7 +394,7 @@ include '../includes/universal_header.php';
                                 <td class="text-center small">
                                     <?php echo $has_data ? '₱' . number_format($pa['min_price'], 2) . ' - ₱' . number_format($pa['max_price'], 2) : '-'; ?>
                                 </td>
-                                <td class="text-center"><?php echo $pa['listing_count']; ?></td>
+                                <td class="text-center"><?php echo (int)$pa['listing_count']; ?></td>
                                 <td class="text-center fw-bold <?php echo $variance_class; ?>">
                                     <?php 
                                         if (!$has_data) echo '-';
@@ -321,4 +432,24 @@ include '../includes/universal_header.php';
     </div>
 </main>
 
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const reportSearch = document.getElementById('reportSearch');
+    const table = document.querySelector('.printable-area table');
+    
+    if (reportSearch && table) {
+        reportSearch.addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase();
+            const rows = table.querySelectorAll('tbody tr');
+            
+            rows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                row.style.display = text.includes(searchTerm) ? '' : 'none';
+            });
+        });
+    }
+});
+</script>
+
 <?php include '../includes/universal_footer.php'; ?>
+

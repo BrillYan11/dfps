@@ -9,10 +9,26 @@ $base_url = "https://psgc.gitlab.io/api";
 $action = $_GET['action'] ?? '';
 
 function fetch_json($url) {
-    // Suppress warnings for HTTP errors (e.g. 404)
+    if (function_exists('curl_init')) {
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+        $res = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        
+        if ($httpCode === 200 && $res) {
+            return $res;
+        }
+    }
+
+    // Fallback to file_get_contents if cURL is not available or fails
     $json = @file_get_contents($url);
     if ($json === false) {
-        return json_encode(['error' => 'Failed to fetch data from PSGC API.']);
+        return json_encode(['error' => 'Failed to fetch data from PSGC API. Ensure allow_url_fopen or cURL is enabled.']);
     }
     return $json;
 }

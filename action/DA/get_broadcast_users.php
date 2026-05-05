@@ -33,6 +33,7 @@ if ($target_area) {
 $stmt = $conn->prepare($query);
 if (!empty($params)) {
     $stmt->bind_param($types, ...$params);
+}
 $stmt->execute();
 $users = dfps_fetch_all($stmt);
 $stmt->close();

@@ -40,7 +40,7 @@ include '../includes/universal_header.php';
     <div class="row justify-content-center">
         <div class="col-lg-8">
             <div class="d-flex align-items-center mb-4">
-                <a href="index.php" class="btn btn-light rounded-circle me-3 shadow-sm">
+                <a href="<?php echo dfps_url('farmer/'); ?>" class="btn btn-light rounded-circle me-3 shadow-sm">
                     <i class="bi bi-arrow-left"></i>
                 </a>
                 <h2 class="mb-0 fw-bold">All Announcements</h2>

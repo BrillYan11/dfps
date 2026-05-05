@@ -9,6 +9,8 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'DA_SUPER_ADMIN') {
     exit;
 }
 
+csrf_guard();
+
 $success_msg = '';
 $error_msg = '';
 
@@ -66,20 +68,21 @@ include '../includes/universal_header.php';
                     <?php if ($success_msg): ?>
                         <div class="alert alert-success d-flex align-items-center justify-content-between alert-dismissible fade show" id="autoAlert">
                             <div>
-                                <i class="bi bi-check-circle-fill me-2"></i><?php echo $success_msg; ?>
+                                <i class="bi bi-check-circle-fill me-2"></i><?php echo htmlspecialchars($success_msg); ?>
                             </div>
-                            <a href="users.php" class="btn btn-sm btn-dark rounded-pill px-3 ms-3 shadow-sm">
+                            <a href="da/users.php" class="btn btn-sm btn-dark rounded-pill px-3 ms-3 shadow-sm">
                                 <i class="bi bi-arrow-left me-1"></i> Back to Users
                             </a>
                         </div>
                     <?php endif; ?>
                     <?php if ($error_msg): ?>
                         <div class="alert alert-danger d-flex align-items-center alert-dismissible fade show" id="autoAlert">
-                            <i class="bi bi-exclamation-triangle-fill me-2"></i><?php echo $error_msg; ?>
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i><?php echo htmlspecialchars($error_msg); ?>
                         </div>
                     <?php endif; ?>
 
                     <form method="POST">
+                        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(get_csrf_token()); ?>">
                         <div class="row g-3 mb-3">
                             <div class="col-md-6">
                                 <label class="form-label fw-bold">First Name</label>
@@ -157,3 +160,4 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 <?php include '../includes/universal_footer.php'; ?>
+

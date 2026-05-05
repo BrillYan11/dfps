@@ -2,36 +2,48 @@
 
 declare(strict_types=1);
 
+/**
+ * Polyfill for str_starts_with (PHP < 8.0 compatibility)
+ */
+if (!function_exists('str_starts_with')) {
+    function str_starts_with(string $haystack, string $needle): bool
+    {
+        return $needle !== '' && strncmp($haystack, $needle, strlen($needle)) === 0;
+    }
+}
+
+/**
+ * Polyfill for str_ends_with (PHP < 8.0 compatibility)
+ */
+if (!function_exists('str_ends_with')) {
+    function str_ends_with(string $haystack, string $needle): bool
+    {
+        return $needle !== '' && substr($haystack, -strlen($needle)) === $needle;
+    }
+}
+
 if (!function_exists('dfps_helper_normalize_root_path')) {
     function dfps_helper_normalize_root_path(string $path): string
     {
         $normalized = trim(str_replace('\\', '/', $path), '/.');
 
-        if ($normalized === '') {
+        if ($normalized === '' || $normalized === 'index.php') {
             return '';
         }
 
-        $segments = array_values(array_filter(explode('/', $normalized), static fn ($segment) => $segment !== ''));
-        $deduped = [];
-
-        foreach ($segments as $segment) {
-            if ($segment === end($deduped)) {
-                continue;
-            }
-
-            $deduped[] = $segment;
+        if (str_ends_with($normalized, '/index.php')) {
+            $normalized = substr($normalized, 0, -10);
         }
 
-        return implode('/', $deduped);
+        return $normalized;
     }
 }
 
 if (!function_exists('dfps_helper_app_root')) {
     function dfps_helper_app_root(): string
     {
-        $explicitRoot = $_SERVER['DFPS_APP_ROOT'] ?? null;
-        if (is_string($explicitRoot) && $explicitRoot !== '') {
-            $normalizedRoot = dfps_helper_normalize_root_path($explicitRoot);
+        if (isset($_SERVER['DFPS_APP_ROOT'])) {
+            $normalizedRoot = dfps_helper_normalize_root_path((string)$_SERVER['DFPS_APP_ROOT']);
             return $normalizedRoot === '' ? '' : '/' . $normalizedRoot;
         }
 
@@ -53,7 +65,8 @@ if (!function_exists('dfps_helper_url')) {
         $root = rtrim(dfps_helper_app_root(), '/');
         $rawPath = str_replace('\\', '/', $path);
 
-        if ($rawPath !== '' && str_starts_with($rawPath, '/')) {
+        // If it's an external URL, return as is
+        if (preg_match('#^(https?:)?//#', $rawPath)) {
             return $rawPath;
         }
 
@@ -61,7 +74,11 @@ if (!function_exists('dfps_helper_url')) {
         $normalized = trim($rawPath, '/');
 
         if ($normalized === '') {
-            return $root === '' ? '/' : $root;
+            $url = $root === '' ? '/' : $root;
+            if ($wantsTrailingSlash) {
+                $url = rtrim($url, '/') . '/';
+            }
+            return $url;
         }
 
         $url = ($root === '' ? '' : $root) . '/' . $normalized;
@@ -77,7 +94,7 @@ if (!function_exists('dfps_helper_asset')) {
 }
 
 if (!function_exists('dfps_helper_redirect')) {
-    function dfps_helper_redirect(string $path, int $statusCode = 302): never
+    function dfps_helper_redirect(string $path, int $statusCode = 302)
     {
         header('Location: ' . dfps_helper_url($path), true, $statusCode);
         exit;

@@ -1,17 +1,30 @@
 <?php
-session_start();
 include '../../includes/db.php';
 include '../../includes/NotificationModel.php';
 require_once '../../includes/url_helpers.php';
 
+$method = $_SERVER['REQUEST_METHOD'];
+
 if (!isset($_SESSION['user_id'])) {
-    header("Location: " . dfps_helper_url('login'));
+    if ($method === 'POST') {
+        echo json_encode(['success' => false, 'error' => 'Unauthorized']);
+    } else {
+        header("Location: " . dfps_helper_url('login'));
+    }
     exit;
 }
 
 $user_id = $_SESSION['user_id'];
-$notification_id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
-$redirect_url = $_GET['redirect'] ?? null;
+
+// Support both GET and POST for mark_read
+if ($method === 'POST') {
+    csrf_guard_ajax();
+    $notification_id = filter_input(INPUT_POST, 'id', FILTER_VALIDATE_INT);
+    $redirect_url = $_POST['redirect'] ?? null;
+} else {
+    $notification_id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
+    $redirect_url = $_GET['redirect'] ?? null;
+}
 
 function build_notification_redirect(string $redirect_url, string $role): string
 {
@@ -42,12 +55,19 @@ function build_notification_redirect(string $redirect_url, string $role): string
         return dfps_helper_url($path) . $query . $fragment;
     }
 
-    $role_prefix = match ($role) {
-        'BUYER' => 'buyer/',
-        'FARMER' => 'farmer/',
-        'DA', 'DA_SUPER_ADMIN' => 'da/',
-        default => '',
-    };
+    $role_prefix = '';
+    switch ($role) {
+        case 'BUYER':
+            $role_prefix = 'buyer/';
+            break;
+        case 'FARMER':
+            $role_prefix = 'farmer/';
+            break;
+        case 'DA':
+        case 'DA_SUPER_ADMIN':
+            $role_prefix = 'da/';
+            break;
+    }
 
     return dfps_helper_url($role_prefix . $path) . $query . $fragment;
 }
@@ -55,6 +75,12 @@ function build_notification_redirect(string $redirect_url, string $role): string
 if ($notification_id) {
     // Mark the specific notification as read
     NotificationModel::markAsRead($conn, $notification_id, $user_id);
+}
+
+// If it's an AJAX request (POST), return JSON
+if ($method === 'POST') {
+    echo json_encode(['success' => true]);
+    exit;
 }
 
 // Redirect the user
@@ -77,8 +103,4 @@ if ($redirect_url) {
     header("Location: " . $fallback_path);
     exit;
 }
-
-// Final safety exit
-header("Location: " . dfps_helper_url());
-exit;
-exit;
+?>

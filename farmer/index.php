@@ -30,13 +30,14 @@ $posts_query = "
         p.price,
         p.quantity,
         p.unit,
+        p.status,
         pr.name AS produce_name,
         a.name AS area_name,
         (SELECT pi.file_path FROM post_images pi WHERE pi.post_id = p.id ORDER BY pi.id ASC LIMIT 1) AS image_path
     FROM posts p
     JOIN produce pr ON p.produce_id = pr.id
     LEFT JOIN areas a ON p.area_id = a.id
-    WHERE p.farmer_id = ?
+    WHERE p.farmer_id = ? AND p.is_deleted = 0
     ORDER BY p.created_at DESC
 ";
 $stmt = $conn->prepare($posts_query);
@@ -88,7 +89,7 @@ include '../includes/universal_header.php';
                     </div>
                 <?php endforeach; ?>
             <?php endif; ?>
-            <a href="announcements.php" class="btn btn-sm btn-link p-0 text-decoration-none">View All</a>
+            <a href="<?php echo dfps_url('farmer/announcements'); ?>" class="btn btn-sm btn-link p-0 text-decoration-none">View All</a>
           </div>
         </div>
       </aside>
@@ -98,7 +99,7 @@ include '../includes/universal_header.php';
         <div class="panel p-3">
 
           <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
-            <a href="add_post.php" class="btn btn-success rounded-pill px-4 shadow-sm"><i class="bi bi-plus-circle me-1"></i> Create New Post</a>
+            <a href="<?php echo dfps_url('farmer/add_post'); ?>" class="btn btn-success rounded-pill px-4 shadow-sm"><i class="bi bi-plus-circle me-1"></i> Create New Post</a>
 
             <div class="d-flex align-items-center gap-2">
                 <!-- Filter Dropdown -->
@@ -170,22 +171,36 @@ include '../includes/universal_header.php';
                 <div class="col-12 col-sm-6 col-md-4">
                   <div class="card product-box h-100 border-0 shadow-sm">
                     <?php
-                      $image_src = !empty($post['image_path']) ? '../' . htmlspecialchars($post['image_path']) : '../pic/no-image.svg';
+                      $image_src = !empty($post['image_path']) ? htmlspecialchars($post['image_path']) : 'pic/no-image.svg';
                     ?>
                     <div class="ratio ratio-4x3">
                         <img src="<?php echo $image_src; ?>" class="card-img-top object-fit-cover" alt="<?php echo htmlspecialchars($post['title']); ?>">
                     </div>
-                    <div class="card-body">
+                    <div class="card-body text-center">
                       <h6 class="card-title fw-bold mb-2"><?php echo htmlspecialchars($post['title']); ?></h6>
-                      <p class="card-text mb-2"><span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle"><?php echo htmlspecialchars($post['produce_name']); ?></span></p>
-                      <h5 class="card-text text-success fw-bold mb-3">₱ <?php echo htmlspecialchars(number_format($post['price'], 2)); ?> <small class="text-muted fw-normal">/ <?php echo htmlspecialchars($post['unit']); ?></small></h5>
+                      <p class="card-text mb-1"><span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle"><?php echo htmlspecialchars($post['produce_name']); ?></span></p>
+                      
+                      <?php 
+                        $status = $post['status'] ?? 'ACTIVE';
+                        $badge_class = 'bg-success';
+                        if ($status === 'SOLD') $badge_class = 'bg-danger';
+                        elseif ($status === 'ARCHIVED') $badge_class = 'bg-dark';
+                        elseif ($status === 'HIDDEN') $badge_class = 'bg-warning text-dark';
+                      ?>
+                      <div class="mb-2">
+                        <span class="badge <?php echo $badge_class; ?>" style="font-size: 0.7rem;"><?php echo $status; ?></span>
+                      </div>
+
+                      <h5 class="card-text text-success fw-bold mb-3">
+                        ₱ <?php echo htmlspecialchars(number_format($post['price'], 2)); ?> <small class="text-muted fw-normal">/ <?php echo htmlspecialchars($post['unit']); ?></small>
+                      </h5>
                        <p class="card-text text-muted mb-0 small">
                           <i class="bi bi-box-seam me-1"></i> Stock: <?php echo htmlspecialchars($post['quantity']); ?> <?php echo htmlspecialchars($post['unit']); ?><br>
                           <i class="bi bi-geo-alt me-1"></i> <?php echo htmlspecialchars($post['area_name']); ?>
                        </p>
                     </div>
                     <div class="card-footer bg-white border-0 pt-0 pb-3">
-                        <a href="edit_post.php?id=<?php echo $post['id']; ?>" class="btn btn-outline-success btn-sm w-100 rounded-pill">Edit Details</a>
+                        <a href="farmer/edit_post?id=<?php echo $post['id']; ?>" class="btn btn-outline-success btn-sm w-100 rounded-pill">Edit Details</a>
                     </div>
                   </div>
                 </div>
@@ -199,6 +214,7 @@ include '../includes/universal_header.php';
   </main>
 
   <script>
+    window.CSRF_TOKEN = '<?php echo get_csrf_token(); ?>';
     document.addEventListener('DOMContentLoaded', function() {
         const productGrid = document.getElementById('productGrid');
         const resultsCount = document.getElementById('resultsCount');
@@ -241,7 +257,7 @@ include '../includes/universal_header.php';
                 page: page
             });
 
-            fetch(`../buyer/get_posts.php?${params.toString()}`)
+            fetch('buyer/get_posts?' + params.toString())
                 .then(response => response.json())
                 .then(data => {
                     updateGrid(data);
@@ -268,26 +284,44 @@ include '../includes/universal_header.php';
 
             let html = '';
             posts.forEach(post => {
-                const imageSrc = post.image_path ? '../' + post.image_path : '../pic/no-image.svg';
+                const imageSrc = post.image_path ? escapeHTML(post.image_path) : 'pic/no-image.svg';
                 const price = parseFloat(post.price).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                const title = escapeHTML(post.title);
+                const produceName = escapeHTML(post.produce_name);
+                const unit = escapeHTML(post.unit);
+                const quantity = escapeHTML(post.quantity);
+                const areaName = escapeHTML(post.area_name);
+                const status = post.status || 'ACTIVE';
+
+                let badgeClass = 'bg-success';
+                if (status === 'SOLD') badgeClass = 'bg-danger';
+                else if (status === 'ARCHIVED') badgeClass = 'bg-dark';
+                else if (status === 'HIDDEN') badgeClass = 'bg-warning text-dark';
                 
                 html += `
                     <div class="col-12 col-sm-6 col-md-4">
                       <div class="card product-box h-100 border-0 shadow-sm">
                         <div class="ratio ratio-4x3">
-                            <img src="${imageSrc}" class="card-img-top object-fit-cover" alt="${post.title}">
+                            <img src="${imageSrc}" class="card-img-top object-fit-cover" alt="${title}">
                         </div>
-                        <div class="card-body">
-                          <h6 class="card-title fw-bold mb-2">${post.title}</h6>
-                          <p class="card-text mb-2"><span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">${post.produce_name}</span></p>
-                          <h5 class="card-text text-success fw-bold mb-3">₱ ${price} <small class="text-muted fw-normal">/ ${post.unit}</small></h5>
+                        <div class="card-body text-center">
+                          <h6 class="card-title fw-bold mb-2">${title}</h6>
+                          <p class="card-text mb-1"><span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">${produceName}</span></p>
+                          
+                          <div class="mb-2">
+                            <span class="badge ${badgeClass}" style="font-size: 0.7rem;">${status}</span>
+                          </div>
+
+                          <h5 class="card-text text-success fw-bold mb-3">
+                            ₱ ${price} <small class="text-muted fw-normal">/ ${unit}</small>
+                          </h5>
                            <p class="card-text text-muted mb-0 small">
-                              <i class="bi bi-box-seam me-1"></i> Stock: ${post.quantity} ${post.unit}<br>
-                              <i class="bi bi-geo-alt me-1"></i> ${post.area_name}
+                              <i class="bi bi-box-seam me-1"></i> Stock: ${quantity} ${unit}<br>
+                              <i class="bi bi-geo-alt me-1"></i> ${areaName}
                            </p>
                         </div>
                         <div class="card-footer bg-white border-0 pt-0 pb-3">
-                            <a href="edit_post.php?id=${post.id}" class="btn btn-outline-success btn-sm w-100 rounded-pill">Edit Details</a>
+                            <a href="farmer/edit_post?id=${post.id}" class="btn btn-outline-success btn-sm w-100 rounded-pill">Edit Details</a>
                         </div>
                       </div>
                     </div>

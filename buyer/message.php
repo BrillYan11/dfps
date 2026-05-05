@@ -1,6 +1,7 @@
 <?php
 session_start();
 include '../includes/db.php';
+csrf_guard();
 include_once '../includes/NotificationModel.php';
 include_once '../includes/EncryptionUtil.php';
 require_once '../includes/url_helpers.php';
@@ -29,7 +30,7 @@ if ($selected_conv_id) {
     $read_stmt->close();
 
     // Mark corresponding notifications as read
-    $notif_link_pattern = $messageBasePath . "?conv_id=" . $selected_conv_id;
+    $notif_link_pattern = "message?conv_id=" . $selected_conv_id;
     NotificationModel::markAsReadByLink($conn, $current_user_id, $notif_link_pattern);
 }
 
@@ -45,7 +46,10 @@ if ($receiver_id && !$selected_conv_id) {
     $conv_lookup_stmt->execute();
     if ($conv_row = dfps_fetch_assoc($conv_lookup_stmt)) {
         $selected_conv_id = $conv_row['conversation_id'];
-        $conn->query("UPDATE conversation_participants SET is_archived = 0 WHERE conversation_id = $selected_conv_id AND user_id = $current_user_id");
+        $update_archived_stmt = $conn->prepare("UPDATE conversation_participants SET is_archived = 0 WHERE conversation_id = ? AND user_id = ?");
+        $update_archived_stmt->bind_param("ii", $selected_conv_id, $current_user_id);
+        $update_archived_stmt->execute();
+        $update_archived_stmt->close();
     } else {
         $conn->begin_transaction();
         try {
@@ -79,6 +83,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty(trim($_POST['message_body'])
             $msg_stmt->close();
 
             // Notify Receiver
+            $receiver_info_stmt = $conn->prepare("SELECT role FROM users WHERE id = ?");
+            $receiver_info_stmt->bind_param("i", $actual_receiver_id);
+            $receiver_info_stmt->execute();
+            $receiver_role = dfps_fetch_assoc($receiver_info_stmt)['role'] ?? 'BUYER';
+            $receiver_info_stmt->close();
+
             $me_stmt = $conn->prepare("SELECT first_name, last_name FROM users WHERE id = ?");
             $me_stmt->bind_param("i", $current_user_id);
             $me_stmt->execute();
@@ -87,10 +97,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty(trim($_POST['message_body'])
             
             $notif_title = "New Message from " . $me['first_name'];
             $notif_body = "Sent you a message.";
-            $notif_link = $messageBasePath . "?conv_id=" . $selected_conv_id;
+
+            // Determine correct receiver base path
+            $receiver_base = 'buyer/message';
+            if ($receiver_role === 'FARMER') $receiver_base = 'farmer/message';
+            elseif (in_array($receiver_role, ['DA', 'DA_SUPER_ADMIN'])) $receiver_base = 'da/message';
+
+            $notif_link = $receiver_base . "?conv_id=" . $selected_conv_id;
             NotificationModel::createNotification($conn, $actual_receiver_id, 'NEW_MESSAGE', $notif_title, $notif_body, $notif_link);
 
-            $conn->query("UPDATE conversation_participants SET is_archived = 0 WHERE conversation_id = $selected_conv_id");
+            $update_stmt = $conn->prepare("UPDATE conversation_participants SET is_archived = 0 WHERE conversation_id = ?");
+            $update_stmt->bind_param("i", $selected_conv_id);
+            $update_stmt->execute();
+            $update_stmt->close();
             
             $conn->commit();
             header("Location: " . dfps_helper_url($messageBasePath) . "?conv_id=$selected_conv_id&view=$view");
@@ -129,10 +148,11 @@ $conv_stmt->bind_param("iiii", $current_user_id, $current_user_id, $current_user
 $conv_stmt->execute();
 $conv_rows = dfps_fetch_all($conv_stmt);
 foreach ($conv_rows as $row) { 
-    $row['last_message'] = EncryptionUtil::decrypt($row['last_message']);
+    $row['last_message'] = EncryptionUtil::decrypt($row['last_message'] ?? '');
     $conversations[] = $row; 
 }
 $conv_stmt->close();
+
 
 // --- Fetch selected message details ---
 $messages = [];
@@ -307,6 +327,7 @@ include '../includes/universal_header.php';
 
             <div class="chat-footer">
                 <form method="POST" action="<?php echo dfps_helper_url($messageBasePath); ?>?conv_id=<?php echo $selected_conv_id; ?>&view=<?php echo $view; ?>">
+                    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(get_csrf_token()); ?>">
                     <div class="message-input-wrapper">
                         <textarea name="message_body" class="message-input" rows="1" placeholder="Type a message..." required id="message-input"></textarea>
                         <button class="send-btn" type="submit"><i class="bi bi-send-fill"></i></button>

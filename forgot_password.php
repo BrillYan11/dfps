@@ -1,6 +1,8 @@
 <?php
 include 'includes/db.php';
 
+csrf_guard();
+
 $appUrl = static function (string $path = ''): string {
     if (function_exists('dfps_url')) {
         return dfps_url($path);
@@ -128,6 +130,7 @@ include 'includes/universal_header.php';
 
                     <?php if (!$success_message || strpos($success_message, 'Local Dev Mode') !== false): ?>
                     <form action="<?php echo $appUrl('forgot_password'); ?>" method="POST">
+                        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(get_csrf_token()); ?>">
                         <div class="mb-3">
                             <label for="email" class="form-label">Email address</label>
                             <input type="email" class="form-control form-control-lg" id="email" name="email" placeholder="name@example.com" required>

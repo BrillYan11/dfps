@@ -252,3 +252,4 @@ $assetUrl = static function (string $path): string {
         <?php endif; ?>
     });
 </script>
+

@@ -7,6 +7,8 @@ if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['DA', 'DA_SUPE
     exit;
 }
 
+csrf_guard();
+
 $success_msg = $_SESSION['success_message'] ?? '';
 $error_msg = $_SESSION['error_message'] ?? '';
 unset($_SESSION['success_message'], $_SESSION['error_message']);
@@ -32,7 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_produce'])) {
 }
 
 // Fetch all produce
-$produce_list = dfps_fetch_all($conn->query("SELECT * FROM produce ORDER BY name ASC"));
+$produce_list = dfps_fetch_all($conn->query("SELECT * FROM produce WHERE is_deleted = 0 ORDER BY name ASC"));
 
 include '../includes/universal_header.php';
 ?>
@@ -47,13 +49,14 @@ include '../includes/universal_header.php';
                 </div>
                 <div class="card-body">
                     <?php if ($success_msg): ?>
-                        <div class="alert alert-success d-flex align-items-center"><i class="bi bi-check-circle-fill me-2"></i><?php echo $success_msg; ?></div>
+                        <div class="alert alert-success d-flex align-items-center"><i class="bi bi-check-circle-fill me-2"></i><?php echo htmlspecialchars($success_msg); ?></div>
                     <?php endif; ?>
                     <?php if ($error_msg): ?>
-                        <div class="alert alert-danger d-flex align-items-center"><i class="bi bi-exclamation-triangle-fill me-2"></i><?php echo $error_msg; ?></div>
+                        <div class="alert alert-danger d-flex align-items-center"><i class="bi bi-exclamation-triangle-fill me-2"></i><?php echo htmlspecialchars($error_msg); ?></div>
                     <?php endif; ?>
 
-                    <form method="POST" action="produce.php">
+                    <form method="POST" action="da/produce.php">
+                        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(get_csrf_token()); ?>">
                         <div class="mb-3">
                             <label class="form-label fw-bold">Produce Name</label>
                             <input type="text" name="name" id="produce_name" class="form-control rounded-3 shadow-none border-2" placeholder="e.g. Potato, Rice, Corn" required>
@@ -117,16 +120,17 @@ include '../includes/universal_header.php';
                                                             data-srp="<?php echo $item['srp']; ?>">
                                                         <i class="bi bi-pencil"></i> Edit
                                                     </button>
-                                                    <a href="../action/DA/toggle_produce.php?id=<?php echo $item['id']; ?>&status=<?php echo $item['is_active'] ? '0' : '1'; ?>" 
+                                                    <button type="button" 
+                                                       onclick="toggleProduce(<?php echo $item['id']; ?>, <?php echo $item['is_active'] ? '0' : '1'; ?>)"
                                                        class="btn btn-sm <?php echo $item['is_active'] ? 'btn-outline-warning' : 'btn-outline-success'; ?> rounded-pill"
                                                        title="<?php echo $item['is_active'] ? 'Deactivate' : 'Activate'; ?>">
                                                         <i class="bi <?php echo $item['is_active'] ? 'bi-slash-circle' : 'bi-check-circle'; ?>"></i>
-                                                    </a>
-                                                    <a href="../action/DA/delete_produce.php?id=<?php echo $item['id']; ?>" 
-                                                       class="btn btn-sm btn-outline-danger rounded-pill" 
-                                                       onclick="return confirm('Are you sure you want to delete this produce? This action cannot be undone and will only succeed if the produce is not linked to any posts.')">
+                                                    </button>
+                                                    <button type="button" 
+                                                       onclick="deleteProduce(<?php echo $item['id']; ?>)"
+                                                       class="btn btn-sm btn-outline-danger rounded-pill">
                                                         <i class="bi bi-trash"></i>
-                                                    </a>
+                                                    </button>
                                                 </div>
                                             </td>
                                         </tr>
@@ -150,6 +154,52 @@ include '../includes/universal_header.php';
             window.scrollTo({ top: 0, behavior: 'smooth' });
         });
     });
+
+    function toggleProduce(id, status) {
+        if (!confirm('Change status of this produce?')) return;
+        
+        const formData = new FormData();
+        formData.append('id', id);
+        formData.append('status', status);
+        formData.append('csrf_token', '<?php echo get_csrf_token(); ?>');
+
+        fetch('action/DA/toggle_produce.php', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert(data.error || 'Failed to toggle status');
+            }
+        })
+        .catch(err => console.error(err));
+    }
+
+    function deleteProduce(id) {
+        if (!confirm('Are you sure you want to delete this produce? This action cannot be undone and will only succeed if the produce is not linked to any posts.')) return;
+        
+        const formData = new FormData();
+        formData.append('id', id);
+        formData.append('csrf_token', '<?php echo get_csrf_token(); ?>');
+
+        fetch('action/DA/delete_produce.php', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert(data.error || 'Failed to delete produce');
+            }
+        })
+        .catch(err => console.error(err));
+    }
 </script>
 
 <?php include '../includes/universal_footer.php'; ?>
+

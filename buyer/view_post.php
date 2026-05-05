@@ -9,6 +9,8 @@ if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['BUYER', 'FARM
     exit;
 }
 
+csrf_guard();
+
 $current_user_id = $_SESSION['user_id'];
 $role = $_SESSION['role'];
 $post_id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
@@ -33,7 +35,7 @@ $query = "
     JOIN produce pr ON p.produce_id = pr.id
     JOIN users u ON p.farmer_id = u.id
     LEFT JOIN areas a ON p.area_id = a.id
-    WHERE p.id = ? AND p.status = 'ACTIVE'
+    WHERE p.id = ? AND p.status = 'ACTIVE' AND p.is_deleted = 0
 ";
 $stmt = $conn->prepare($query);
 $stmt->bind_param("i", $post_id);
@@ -79,7 +81,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['express_interest']) &
 
             $notif_title = "New Interest in your Post!";
             $notif_body = htmlspecialchars($buyer_name) . " is interested in your post: \"" . htmlspecialchars($post['title']) . "\".";
-            $notif_link = "view_interests.php?post_id=" . $post_id; // Relative to farmer/ directory
+            $notif_link = dfps_url('farmer/view_interests') . "?post_id=" . $post_id;
 
             NotificationModel::createNotification($conn, $post['farmer_id'], 'NEW_INTEREST', $notif_title, $notif_body, $notif_link);
 
@@ -113,7 +115,7 @@ include '../includes/universal_header.php';
 <div class="container my-4">
 
     <div class="d-flex align-items-center mb-3">
-      <a href="index.php" class="btn btn-sm btn-outline-secondary me-2"><i class="bi bi-arrow-left"></i> Back to Market</a>
+      <a href="<?php echo dfps_url('buyer/'); ?>" class="btn btn-sm btn-outline-secondary me-2"><i class="bi bi-arrow-left"></i> Back to Market</a>
     </div>
 
     <?php if ($interest_success): ?>
@@ -136,7 +138,7 @@ include '../includes/universal_header.php';
                     <div class="carousel-inner">
                         <?php foreach ($images as $i => $image): ?>
                             <div class="carousel-item <?php echo $i === 0 ? 'active' : ''; ?>">
-                                <img src="../<?php echo htmlspecialchars($image); ?>" class="d-block w-100" style="height: 500px; object-fit: cover;" alt="Product Image">
+                                <img src="<?php echo htmlspecialchars($image); ?>" class="d-block w-100" style="height: 500px; object-fit: cover;" alt="Product Image">
                             </div>
                         <?php endforeach; ?>
                     </div>
@@ -150,7 +152,7 @@ include '../includes/universal_header.php';
                     </button>
                 </div>
             <?php else: ?>
-                <img src="../pic/no-image.svg" class="img-fluid rounded border" alt="No Image">
+                <img src="<?php echo dfps_url('pic/no-image.svg'); ?>" class="img-fluid rounded border" alt="No Image">
             <?php endif; ?>
         </div>
 
@@ -186,7 +188,8 @@ include '../includes/universal_header.php';
 
                     <div class="d-grid gap-2 mt-4">
                         <?php if ($role === 'BUYER'): ?>
-                            <form method="POST" action="view_post.php?id=<?php echo $post_id; ?>">
+                            <form method="POST" action="<?php echo dfps_url('buyer/view_post'); ?>?id=<?php echo $post_id; ?>">
+                                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(get_csrf_token()); ?>">
                                 <button type="submit" name="express_interest" class="btn btn-primary btn-lg w-100">
                                     <i class="bi bi-heart-fill"></i> Express Interest
                                 </button>
@@ -194,7 +197,7 @@ include '../includes/universal_header.php';
                         <?php endif; ?>
 
                         <?php if ($current_user_id != $post['farmer_id']): ?>
-                            <a href="message.php?receiver_id=<?php echo $post['farmer_id']; ?>&post_id=<?php echo $post_id; ?>" class="btn btn-outline-secondary btn-lg w-100">
+                            <a href="<?php echo dfps_url('buyer/message'); ?>?receiver_id=<?php echo $post['farmer_id']; ?>&post_id=<?php echo $post_id; ?>" class="btn btn-outline-secondary btn-lg w-100">
                                 <i class="bi bi-chat-dots-fill"></i> Send a Message
                             </a>
                         <?php else: ?>
@@ -203,6 +206,7 @@ include '../includes/universal_header.php';
                             </div>
                         <?php endif; ?>
                     </div>
+
 
                 </div>
             </div>

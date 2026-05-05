@@ -55,7 +55,7 @@ include '../includes/universal_header.php';
 
 <div class="container my-4">
     <div class="d-flex align-items-center mb-3">
-        <a href="index.php" class="btn btn-sm btn-outline-secondary me-2"><i class="bi bi-arrow-left"></i> Back to Products</a>
+        <a href="<?php echo dfps_url('farmer/'); ?>" class="btn btn-sm btn-outline-secondary me-2"><i class="bi bi-arrow-left"></i> Back to Products</a>
     </div>
 
     <h3>Buyers Interested In: "<?php echo htmlspecialchars($post['title']); ?>"</h3>
@@ -87,7 +87,7 @@ include '../includes/universal_header.php';
                                     <td><?php echo htmlspecialchars($interest['phone']); ?></td>
                                     <td><?php echo date('F j, Y, g:i a', strtotime($interest['interest_date'])); ?></td>
                                     <td>
-                                        <a href="message.php?receiver_id=<?php echo $interest['id']; ?>" class="btn btn-sm btn-primary">
+                                        <a href="<?php echo dfps_url('farmer/message'); ?>?receiver_id=<?php echo $interest['id']; ?>" class="btn btn-sm btn-primary">
                                             <i class="bi bi-chat-dots-fill"></i> Message
                                         </a>
                                     </td>
@@ -100,5 +100,6 @@ include '../includes/universal_header.php';
         </div>
     </div>
 </div>
+
 
 <?php include '../includes/universal_footer.php'; ?>

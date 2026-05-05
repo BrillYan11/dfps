@@ -17,6 +17,55 @@ document.addEventListener('DOMContentLoaded', function() {
         return (appRoot ? appRoot : '') + '/' + cleanPath;
     }
 
+    // Intercept state-changing links and convert to POST (Security & ZAP compliance)
+    document.addEventListener('click', function(e) {
+        const actionLink = e.target.closest('a[href*="action/Notification/dismiss.php"], a[href*="action/Notification/clear_all.php"], a[href*="action/Message/archive.php"], a[href*="action/Message/delete.php"], a[href*="action/Message/delete_conversation.php"], a[href*="action/DA/delete_produce.php"]');
+        
+        if (actionLink) {
+            e.preventDefault();
+            
+            // Confirm for deletions
+            if (actionLink.href.includes('delete') || actionLink.href.includes('clear')) {
+                if (!confirm('Are you sure you want to perform this action?')) return;
+            }
+
+            const url = new URL(actionLink.href);
+            const params = new URLSearchParams(url.search);
+            const formData = new FormData();
+            
+            params.forEach((value, key) => formData.append(key, value));
+            formData.append('csrf_token', window.CSRF_TOKEN);
+
+            const endpoint = url.origin + url.pathname;
+            
+            fetch(endpoint, {
+                method: 'POST',
+                body: formData
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    // Refresh relevant parts of the UI
+                    if (endpoint.includes('Notification')) {
+                        updateNotificationBadge();
+                        if (notificationList) location.reload(); // Simplest way to refresh the list
+                    } else if (endpoint.includes('Message')) {
+                        location.reload();
+                    } else if (endpoint.includes('DA/delete_produce.php')) {
+                        location.reload();
+                    }
+                } else {
+                    alert('Action failed: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(err => {
+                console.error('Action error:', err);
+                // Fallback: if it's not a JSON response, maybe it worked but redirected? 
+                // But we expect JSON from our new action handlers.
+            });
+        }
+    });
+
     const currentPath = window.location.pathname;
     const relativePath = appRoot && currentPath.startsWith(appRoot) ? currentPath.slice(appRoot.length) : currentPath;
     const pathSegments = relativePath.replace(/^\/+/, '').split('/').filter(Boolean);
@@ -56,7 +105,7 @@ document.addEventListener('DOMContentLoaded', function() {
             })
             .then(data => {
                 // Target bell icon specifically in header and sidebar
-                const bellLinks = document.querySelectorAll('.header-item[href*="/notification"], .sidebar-link[href*="/notification"]');
+                const bellLinks = document.querySelectorAll('.header-item[href*="notification"], .sidebar-link[href*="notification"]');
                 updateBadgeForElements(bellLinks, data.unread_count);
             })
             .catch(err => console.error('Error fetching notification count:', err));
@@ -71,7 +120,7 @@ document.addEventListener('DOMContentLoaded', function() {
             })
             .then(data => {
                 // Target message icon specifically in header and sidebar
-                const msgLinks = document.querySelectorAll('.header-item[href*="/message"], .sidebar-link[href*="/message"]');
+                const msgLinks = document.querySelectorAll('.header-item[href*="message"], .sidebar-link[href*="message"]');
                 updateBadgeForElements(msgLinks, data.unread_count);
             })
             .catch(err => console.error('Error fetching message count:', err));
@@ -184,8 +233,15 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
 
-        // Mark as read in background via AJAX
-        fetch(appUrl('action/Notification/mark_read.php') + `?id=${notif.id}`)
+        // Mark as read in background via POST
+        const formData = new FormData();
+        formData.append('id', notif.id);
+        formData.append('csrf_token', window.CSRF_TOKEN);
+
+        fetch(appUrl('action/Notification/mark_read.php'), {
+            method: 'POST',
+            body: formData
+        })
             .then(() => updateNotificationBadge())
             .catch(err => console.error('Error marking as read:', err));
 
@@ -249,9 +305,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 avatarContent = `<i class="bi bi-person-circle" style="font-size: 1.5rem;"></i>`;
             }
 
-            // Basic HTML escaping for safety
-            const fullName = (conv.first_name + ' ' + conv.last_name).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-            const safeMsg = dispMsg.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            // Use global escapeHTML for safety
+            const fullName = escapeHTML(conv.first_name + ' ' + conv.last_name);
+            const safeMsg = escapeHTML(dispMsg);
+            
+            // Role display for DA users
+            const rolePrefix = (currentSection === 'da') ? `<small class="text-primary fw-bold">${escapeHTML(conv.participant_role)}</small>: ` : '';
 
             html += `
                 <a href="${appUrl(currentSection + '/message')}?conv_id=${conv.conversation_id}&view=${view}" class="conv-item ${isActive ? 'active' : ''}">
@@ -261,11 +320,12 @@ document.addEventListener('DOMContentLoaded', function() {
                             <div class="conv-name text-truncate" style="max-width: 140px;">${fullName}</div>
                             ${unreadBadge}
                         </div>
-                        <div class="conv-last-msg ${msgClass.trim()}">${safeMsg}</div>
+                        <div class="conv-last-msg ${msgClass.trim()}">${rolePrefix}${safeMsg}</div>
                     </div>
                 </a>
             `;
         });
+
         container.innerHTML = html;
     }
 
@@ -331,8 +391,8 @@ document.addEventListener('DOMContentLoaded', function() {
             const item = document.createElement('div');
             item.className = `notification-item ${!notif.is_read ? 'notification-unread' : ''}`;
             item.setAttribute('data-id', notif.id);
-            item.setAttribute('data-title', notif.title);
-            item.setAttribute('data-body', notif.body);
+            item.setAttribute('data-title', escapeHTML(notif.title));
+            item.setAttribute('data-body', escapeHTML(notif.body));
             
             // Re-calculate viewLink for the attribute
             const viewLink = notif.link ? appUrl(`action/Notification/mark_read.php?id=${notif.id}&redirect=${encodeURIComponent(notif.link)}`) : '';
@@ -345,8 +405,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     <i class="bi ${getIconClass(notif.type)}"></i>
                 </div>
                 <div class="notification-content">
-                    <h6 class="mb-0">${notif.title}</h6>
-                    <p class="mb-0 text-truncate" style="max-width: 500px;">${notif.body}</p>
+                    <h6 class="mb-0">${escapeHTML(notif.title)}</h6>
+                    <p class="mb-0 text-truncate" style="max-width: 500px;">${escapeHTML(notif.body)}</p>
                     <span class="time">${timeStr}</span>
                 </div>
                 <div class="notification-actions">
@@ -468,7 +528,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     ${avatarHtml}
                     <div class="message ${isSent ? 'sent' : 'received'}">
                         <div class="message-body ${msg.is_deleted ? 'message-deleted' : ''}">
-                            ${msg.is_deleted ? "Message removed" : msg.body.replace(/\n/g, '<br>')}
+                            ${msg.is_deleted ? "Message removed" : escapeHTML(msg.body).replace(/\n/g, '<br>')}
                         </div>
                         <div class="message-time">${time}</div>
                     </div>

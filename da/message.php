@@ -1,6 +1,7 @@
 <?php
 session_start();
 include '../includes/db.php';
+csrf_guard();
 include '../includes/NotificationModel.php';
 include_once '../includes/EncryptionUtil.php';
 
@@ -24,7 +25,7 @@ if ($selected_conv_id) {
     $read_stmt->close();
 
     // Mark corresponding notifications as read
-    $notif_link_pattern = "message.php?conv_id=" . $selected_conv_id;
+    $notif_link_pattern = "message?conv_id=" . $selected_conv_id;
     NotificationModel::markAsReadByLink($conn, $da_id, $notif_link_pattern);
 }
 
@@ -40,7 +41,10 @@ if ($receiver_id && !$selected_conv_id) {
     $conv_lookup_stmt->execute();
     if ($conv_row = dfps_fetch_assoc($conv_lookup_stmt)) {
         $selected_conv_id = $conv_row['conversation_id'];
-        $conn->query("UPDATE conversation_participants SET is_archived = 0 WHERE conversation_id = $selected_conv_id AND user_id = $da_id");
+        $update_archived_stmt = $conn->prepare("UPDATE conversation_participants SET is_archived = 0 WHERE conversation_id = ? AND user_id = ?");
+        $update_archived_stmt->bind_param("ii", $selected_conv_id, $da_id);
+        $update_archived_stmt->execute();
+        $update_archived_stmt->close();
     } else {
         $conn->begin_transaction();
         try {
@@ -81,13 +85,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty(trim($_POST['message_body'])
             
             $notif_title = "New Message from DA Portal";
             $notif_body = "Sent you a message.";
-            $notif_link = ($r_role === 'FARMER' ? "farmer/message.php" : "buyer/message.php") . "?conv_id=" . $selected_conv_id;
+
+            // Determine correct receiver base path
+            $receiver_base = 'buyer/message';
+            if ($r_role === 'FARMER') $receiver_base = 'farmer/message';
+            elseif (in_array($r_role, ['DA', 'DA_SUPER_ADMIN'])) $receiver_base = 'da/message';
+
+            $notif_link = $receiver_base . "?conv_id=" . $selected_conv_id;
             NotificationModel::createNotification($conn, $actual_receiver_id, 'NEW_MESSAGE', $notif_title, $notif_body, $notif_link);
 
-            $conn->query("UPDATE conversation_participants SET is_archived = 0 WHERE conversation_id = $selected_conv_id");
+            $update_stmt = $conn->prepare("UPDATE conversation_participants SET is_archived = 0 WHERE conversation_id = ?");
+            $update_stmt->bind_param("i", $selected_conv_id);
+            $update_stmt->execute();
+            $update_stmt->close();
             
             $conn->commit();
-            header("Location: message.php?conv_id=$selected_conv_id&view=$view");
+            dfps_helper_redirect("da/message?conv_id=$selected_conv_id&view=$view");
             exit;
         }
     } catch (Exception $e) { $conn->rollback(); }
@@ -123,9 +136,10 @@ $conv_stmt->bind_param("iiii", $da_id, $da_id, $da_id, $is_archived_filter);
 $conv_stmt->execute();
 $conversations = dfps_fetch_all($conv_stmt);
 foreach ($conversations as &$row) { 
-    $row['last_message'] = EncryptionUtil::decrypt($row['last_message']);
+    $row['last_message'] = EncryptionUtil::decrypt($row['last_message'] ?? '');
 }
 $conv_stmt->close();
+
 
 // --- Fetch selected message details ---
 $messages = [];
@@ -161,7 +175,7 @@ if ($selected_conv_id) {
 $body_class = 'messaging-page';
 include '../includes/universal_header.php';
 ?>
-<link rel="stylesheet" href="../css/message.css?v=<?php echo time(); ?>">
+<link rel="stylesheet" href="<?php echo dfps_helper_url('css/message.css?v=' . time()); ?>">
 
 <div class="messaging-wrapper <?php echo $selected_conv_id ? 'conv-selected' : ''; ?>">
   <div class="messaging-layout">
@@ -172,11 +186,11 @@ include '../includes/universal_header.php';
             <h4>DA Messages</h4>
             <div class="dropdown">
                 <button class="btn btn-sm btn-light rounded-circle" data-bs-toggle="dropdown"><i class="bi bi-three-dots"></i></button>
-                <ul class="dropdown-menu dropdown-menu-end">
-                    <li><a class="dropdown-item" href="message.php?view=active"><i class="bi bi-chat-fill me-2"></i>Active Chats</a></li>
-                    <li><a class="dropdown-item" href="message.php?view=archived"><i class="bi bi-archive-fill me-2"></i>Archived Chats</a></li>
+                <ul class="dropdown-menu dropdown-menu-end shadow border-0">
+                    <li><a class="dropdown-item" href="da/message?view=active"><i class="bi bi-chat-fill me-2"></i>Active Chats</a></li>
+                    <li><a class="dropdown-item" href="da/message?view=archived"><i class="bi bi-archive-fill me-2"></i>Archived Chats</a></li>
                     <li><hr class="dropdown-divider"></li>
-                    <li><a class="dropdown-item text-primary" href="../action/Message/mark_all_read.php"><i class="bi bi-check-all me-2"></i>Mark all as read</a></li>
+                    <li><a class="dropdown-item text-primary" href="action/Message/mark_all_read.php"><i class="bi bi-check-all me-2"></i>Mark all as read</a></li>
                 </ul>
             </div>
         </div>
@@ -194,10 +208,10 @@ include '../includes/universal_header.php';
                     $isActive = ($selected_conv_id == $conv['conversation_id']);
                     $disp_msg = $conv['last_message_deleted'] ? 'Message removed' : ($conv['last_message'] ?: 'No messages yet');
                 ?>
-                    <a href="message.php?conv_id=<?php echo $conv['conversation_id']; ?>&view=<?php echo $view; ?>" class="conv-item <?php echo $isActive ? 'active' : ''; ?>">
+                    <a href="da/message?conv_id=<?php echo $conv['conversation_id']; ?>&view=<?php echo $view; ?>" class="conv-item <?php echo $isActive ? 'active' : ''; ?>">
                         <div class="conv-avatar overflow-hidden">
                             <?php if (!empty($conv['participant_profile_picture'])): ?>
-                                <img src="../<?php echo $conv['participant_profile_picture']; ?>" class="w-100 h-100" style="object-fit: cover;">
+                                <img src="<?php echo dfps_helper_url($conv['participant_profile_picture']); ?>" class="w-100 h-100" style="object-fit: cover;">
                             <?php else: ?>
                                 <i class="bi bi-person-circle" style="font-size: 1.5rem;"></i>
                             <?php endif; ?>
@@ -226,19 +240,19 @@ include '../includes/universal_header.php';
             <div class="d-flex h-100 flex-column justify-content-center align-items-center text-muted p-5 text-center">
                 <i class="bi bi-chat-dots" style="font-size: 5rem; opacity: 0.15; color: var(--primary-color);"></i>
                 <h5 class="mt-3">Select a conversation to start messaging users</h5>
-                <p>You can start a chat by visiting the <a href="users.php">User Management</a> section.</p>
+                <p>You can start a chat by visiting the <a href="da/users">User Management</a> section.</p>
             </div>
         <?php else: ?>
             <div class="chat-header justify-content-between">
                 <div class="d-flex align-items-center">
                     <!-- Mobile Back Button -->
-                    <a href="message.php?view=<?php echo $view; ?>" class="btn btn-sm btn-light rounded-circle me-2 d-lg-none">
+                    <a href="da/message?view=<?php echo $view; ?>" class="btn btn-sm btn-light rounded-circle me-2 d-lg-none">
                         <i class="bi bi-arrow-left"></i>
                     </a>
 
                     <div class="conv-avatar overflow-hidden" style="width: 40px; height: 40px; margin-right: 12px;">
                         <?php if (!empty($selected_participant['participant_profile_picture'])): ?>
-                            <img src="../<?php echo $selected_participant['participant_profile_picture']; ?>" class="w-100 h-100" style="object-fit: cover;">
+                            <img src="<?php echo dfps_helper_url($selected_participant['participant_profile_picture']); ?>" class="w-100 h-100" style="object-fit: cover;">
                         <?php else: ?>
                             <i class="bi bi-person-circle" style="font-size: 1.5rem;"></i>
                         <?php endif; ?>
@@ -261,7 +275,7 @@ include '../includes/universal_header.php';
                         <?php if (!$isSent): ?>
                             <div class="message-avatar overflow-hidden">
                                 <?php if (!empty($selected_participant['participant_profile_picture'])): ?>
-                                    <img src="../<?php echo $selected_participant['participant_profile_picture']; ?>" class="w-100 h-100" style="object-fit: cover;">
+                                    <img src="<?php echo dfps_helper_url($selected_participant['participant_profile_picture']); ?>" class="w-100 h-100" style="object-fit: cover;">
                                 <?php else: ?>
                                     <i class="bi bi-person-circle" style="font-size: 1.2rem;"></i>
                                 <?php endif; ?>
@@ -278,7 +292,8 @@ include '../includes/universal_header.php';
             </div>
 
             <div class="chat-footer">
-                <form method="POST" action="message.php?conv_id=<?php echo $selected_conv_id; ?>&view=<?php echo $view; ?>">
+                <form method="POST" action="da/message?conv_id=<?php echo $selected_conv_id; ?>&view=<?php echo $view; ?>">
+                    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(get_csrf_token()); ?>">
                     <div class="message-input-wrapper">
                         <textarea name="message_body" class="message-input" rows="1" placeholder="Type a message to the <?php echo strtolower($selected_participant['participant_role']); ?>..." required id="message-input"></textarea>
                         <button class="send-btn" type="submit"><i class="bi bi-send-fill"></i></button>
@@ -298,7 +313,7 @@ include '../includes/universal_header.php';
         <div class="info-panel-content">
             <div class="info-avatar overflow-hidden">
                 <?php if (!empty($selected_participant['participant_profile_picture'])): ?>
-                    <img src="../<?php echo $selected_participant['participant_profile_picture']; ?>" class="w-100 h-100" style="object-fit: cover;">
+                    <img src="<?php echo dfps_helper_url($selected_participant['participant_profile_picture']); ?>" class="w-100 h-100" style="object-fit: cover;">
                 <?php else: ?>
                     <i class="bi bi-person-circle" style="font-size: 3rem;"></i>
                 <?php endif; ?>
@@ -313,11 +328,11 @@ include '../includes/universal_header.php';
                 <div class="info-action-btn"><i class="bi bi-calendar3"></i><span>Member since <?php echo date('M Y', strtotime($selected_participant['participant_since'])); ?></span></div>
 
                 <hr class="w-100 my-2">
-                <a href="../action/Message/archive.php?conv_id=<?php echo $selected_conv_id; ?>&action=<?php echo $selected_participant['is_archived'] ? 'unarchive' : 'archive'; ?>" class="info-action-btn">
+                <a href="action/Message/archive.php?conv_id=<?php echo $selected_conv_id; ?>&action=<?php echo $selected_participant['is_archived'] ? 'unarchive' : 'archive'; ?>" class="info-action-btn">
                     <i class="bi bi-archive<?php echo $selected_participant['is_archived'] ? '-fill' : ''; ?>"></i>
                     <span><?php echo $selected_participant['is_archived'] ? 'Unarchive' : 'Archive'; ?> Chat</span>
                 </a>
-                <a href="../action/Message/delete_conversation.php?conv_id=<?php echo $selected_conv_id; ?>" class="info-action-btn danger" onclick="return confirm('Are you sure? This will remove the conversation from your list.')">
+                <a href="action/Message/delete_conversation.php?conv_id=<?php echo $selected_conv_id; ?>" class="info-action-btn danger" onclick="return confirm('Are you sure? This will remove the conversation from your list.')">
                     <i class="bi bi-trash-fill"></i><span>Delete Conversation</span>
                 </a>
             </div>
@@ -358,3 +373,4 @@ include '../includes/universal_header.php';
     }
 </script>
 <?php include '../includes/universal_footer.php'; ?>
+

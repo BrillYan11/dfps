@@ -30,6 +30,9 @@ if (!$user) {
 }
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    if (!validate_csrf_token($_POST['csrf_token'] ?? '')) {
+        die("CSRF token validation failed.");
+    }
     if (isset($_POST['change_password'])) {
         $current_password = $_POST['current_password'] ?? '';
         $new_password = $_POST['new_password'] ?? '';
@@ -165,11 +168,12 @@ include '../includes/universal_header.php';
                     <?php endif; ?>
 
                     <form method="POST" enctype="multipart/form-data">
+                        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(get_csrf_token()); ?>">
                         <div class="row mb-4 align-items-center bg-light p-3 rounded-4 mx-0">
                             <div class="col-auto">
                                 <div class="rounded-circle border bg-white d-flex align-items-center justify-content-center overflow-hidden shadow-sm" style="width: 120px; height: 120px; border: 4px solid #fff !important;">
                                     <?php if (!empty($user['profile_picture'])): ?>
-                                        <img src="../<?php echo $user['profile_picture']; ?>" 
+                                        <img src="<?php echo $user['profile_picture']; ?>" 
                                              class="w-100 h-100" 
                                              style="object-fit: cover;" 
                                              id="profile-preview">
@@ -255,6 +259,7 @@ include '../includes/universal_header.php';
                 <div class="card-body p-4">
                     <h6 class="fw-bold mb-3 text-muted small text-uppercase">Update Password</h6>
                     <form method="POST">
+                        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(get_csrf_token()); ?>">
                         <div class="mb-3">
                             <label class="form-label small fw-bold">Current Password</label>
                             <input type="password" name="current_password" class="form-control rounded-3 border-2 shadow-none" required>

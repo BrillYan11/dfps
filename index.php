@@ -15,9 +15,34 @@ if (!is_file($autoloadPath)) {
 
 require $autoloadPath;
 
-require_once __DIR__ . '/includes/url_helpers.php';
+// Handle static files for the PHP built-in server
+if (PHP_SAPI === 'cli-server') {
+    $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+    $file = __DIR__ . $path;
+    if ($path !== '/' && is_file($file) && !str_ends_with($file, '.php')) {
+        $mimetypes = [
+            'css' => 'text/css',
+            'js'  => 'application/javascript',
+            'png' => 'image/png',
+            'jpg' => 'image/jpeg',
+            'jpeg'=> 'image/jpeg',
+            'gif' => 'image/gif',
+            'svg' => 'image/svg+xml',
+            'ico' => 'image/x-icon',
+            'woff' => 'font/woff',
+            'woff2' => 'font/woff2',
+            'ttf' => 'font/ttf',
+        ];
+        $extension = pathinfo($file, PATHINFO_EXTENSION);
+        if (isset($mimetypes[$extension])) {
+            header("Content-Type: " . $mimetypes[$extension]);
+        }
+        readfile($file);
+        return true;
+    }
+}
 
-$_SERVER['DFPS_APP_ROOT'] = dfps_helper_normalize_root_path(dirname(str_replace('\\', '/', $_SERVER['SCRIPT_NAME'] ?? '/index.php')));
+require_once __DIR__ . '/includes/url_helpers.php';
 
 $registerRoutes = require __DIR__ . '/config/routes.php';
 $registerRoutes();

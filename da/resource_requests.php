@@ -14,6 +14,9 @@ $error_message = '';
 
 // Handle processing (approve/reject)
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['process_request'])) {
+    if (!validate_csrf_token($_POST['csrf_token'] ?? '')) {
+        die("CSRF token validation failed.");
+    }
     $request_id = filter_input(INPUT_POST, 'request_id', FILTER_VALIDATE_INT);
     $status = filter_input(INPUT_POST, 'status', FILTER_UNSAFE_RAW);
     $remarks = filter_input(INPUT_POST, 'remarks', FILTER_UNSAFE_RAW);
@@ -174,6 +177,7 @@ include '../includes/universal_header.php';
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg rounded-4">
             <form method="POST">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(get_csrf_token()); ?>">
                 <input type="hidden" name="request_id" id="modal_request_id">
                 <div class="modal-header border-0 pb-0">
                     <h5 class="modal-title fw-bold">Process Resource Request</h5>
@@ -282,3 +286,4 @@ document.addEventListener('DOMContentLoaded', function () {
 </script>
 
 <?php include '../includes/universal_footer.php'; ?>
+

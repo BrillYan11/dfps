@@ -10,13 +10,15 @@ if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['DA', 'DA_SUPE
     exit;
 }
 
+csrf_guard();
+
 $da_id = $_SESSION['user_id'];
 $success_msg = '';
 $error_msg = '';
 
-// Handle Announcement Deletion
-if (isset($_GET['delete'])) {
-    $id_to_delete = filter_input(INPUT_GET, 'delete', FILTER_VALIDATE_INT);
+// Handle Announcement Deletion via POST
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_announcement'])) {
+    $id_to_delete = filter_input(INPUT_POST, 'id', FILTER_VALIDATE_INT);
     if ($id_to_delete) {
         $stmt = $conn->prepare("DELETE FROM announcements WHERE id = ?");
         $stmt->bind_param("i", $id_to_delete);
@@ -45,12 +47,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_announcement']
             
             // Create a system notification for all relevant users
             $notif_query = "SELECT id FROM users WHERE role != 'DA'";
+            $n_params = [];
+            $n_types = "";
             if ($area_id) {
-                $notif_query .= " AND area_id = $area_id";
+                $notif_query .= " AND area_id = ?";
+                $n_params[] = $area_id;
+                $n_types .= "i";
             }
-            $user_res = $conn->query($notif_query);
-            while($u = $user_res->fetch_assoc()) {
-                NotificationModel::createNotification($conn, $u['id'], 'ANNOUNCEMENT', $title, $body, 'notification.php');
+            
+            if (!empty($n_params)) {
+                $n_stmt = $conn->prepare($notif_query);
+                $n_stmt->bind_param($n_types, ...$n_params);
+                $n_stmt->execute();
+                $user_res = dfps_fetch_all($n_stmt);
+                foreach($user_res as $u) {
+                    NotificationModel::createNotification($conn, $u['id'], 'ANNOUNCEMENT', $title, $body, 'notification.php');
+                }
+                $n_stmt->close();
+            } else {
+                $user_res = $conn->query($notif_query);
+                while($u = $user_res->fetch_assoc()) {
+                    NotificationModel::createNotification($conn, $u['id'], 'ANNOUNCEMENT', $title, $body, 'notification.php');
+                }
             }
         } else {
             $error_msg = "Error: " . $conn->error;
@@ -68,14 +86,18 @@ $total_rows = $conn->query("SELECT COUNT(*) FROM announcements")->fetch_row()[0]
 $total_pages = ceil($total_rows / $limit);
 
 // Fetch existing announcements with pagination
-$announcements = dfps_fetch_all($conn->query("
+$ann_stmt = $conn->prepare("
     SELECT a.*, ar.name as area_name, u.first_name, u.last_name 
     FROM announcements a 
     LEFT JOIN areas ar ON a.area_id = ar.id 
     JOIN users u ON a.da_id = u.id 
     ORDER BY a.created_at DESC
-    LIMIT $limit OFFSET $offset
-"));
+    LIMIT ? OFFSET ?
+");
+$ann_stmt->bind_param("ii", $limit, $offset);
+$ann_stmt->execute();
+$announcements = dfps_fetch_all($ann_stmt);
+$ann_stmt->close();
 
 // Fetch areas for the dropdown
 $areas = dfps_fetch_all($conn->query("SELECT id, name FROM areas ORDER BY name ASC"));
@@ -99,7 +121,8 @@ include '../includes/universal_header.php';
                         <div class="alert alert-danger"><?php echo $error_msg; ?></div>
                     <?php endif; ?>
 
-                    <form method="POST" action="announcements.php">
+                    <form method="POST" action="da/announcements.php">
+                        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(get_csrf_token()); ?>">
                         <div class="mb-3">
                             <label class="form-label">Title</label>
                             <input type="text" name="title" class="form-control rounded-3" placeholder="Urgent: Market Update" required>
@@ -152,14 +175,20 @@ include '../includes/universal_header.php';
                                             <td class="fw-semibold"><?php echo htmlspecialchars($ann['title']); ?></td>
                                             <td><?php echo htmlspecialchars($ann['first_name'].' '.$ann['last_name']); ?></td>
                                             <td class="text-end pe-4">
-                                                <button class="btn btn-sm btn-outline-primary rounded-circle view-details" 
-                                                        data-title="<?php echo htmlspecialchars($ann['title']); ?>"
-                                                        data-body="<?php echo htmlspecialchars($ann['body']); ?>"
-                                                        title="View details"><i class="bi bi-eye"></i></button>
-                                                <a href="announcements.php?delete=<?php echo $ann['id']; ?>" 
-                                                   class="btn btn-sm btn-outline-danger rounded-circle" 
-                                                   onclick="return confirm('Delete this announcement?')"
-                                                   title="Delete"><i class="bi bi-trash"></i></a>
+                                                <div class="d-flex justify-content-end gap-1">
+                                                    <button class="btn btn-sm btn-outline-primary rounded-circle view-details" 
+                                                            data-title="<?php echo htmlspecialchars($ann['title']); ?>"
+                                                            data-body="<?php echo htmlspecialchars($ann['body']); ?>"
+                                                            title="View details"><i class="bi bi-eye"></i></button>
+                                                    <form method="POST" onsubmit="return confirm('Delete this announcement?');" class="d-inline">
+                                                        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(get_csrf_token()); ?>">
+                                                        <input type="hidden" name="delete_announcement" value="1">
+                                                        <input type="hidden" name="id" value="<?php echo $ann['id']; ?>">
+                                                        <button type="submit" class="btn btn-sm btn-outline-danger rounded-circle" title="Delete">
+                                                            <i class="bi bi-trash"></i>
+                                                        </button>
+                                                    </form>
+                                                </div>
                                             </td>
                                         </tr>
                                     <?php endforeach; ?>
@@ -198,3 +227,4 @@ include '../includes/universal_header.php';
 </script>
 
 <?php include '../includes/universal_footer.php'; ?>
+

@@ -82,6 +82,8 @@ $dfpsRouteAliases = [
     'da/send_notification.php' => 'da/send_notification.php',
     'da/users' => 'da/users.php',
     'da/users.php' => 'da/users.php',
+    'da/login' => 'login.php',
+    'da/logout' => 'logout.php',
     'profile' => 'profile/index.php',
     'profile/index' => 'profile/index.php',
     'profile/index.php' => 'profile/index.php',
@@ -123,6 +125,15 @@ function dfps_application_base_path(): string
     }
 
     $scriptName = str_replace('\\', '/', $_SERVER['SCRIPT_NAME'] ?? '/index.php');
+    
+    // Better root detection: find the part of SCRIPT_NAME before our known subdirectories
+    if (preg_match('#^(.*?)(?:/action/|/buyer/|/farmer/|/da/|/profile/|/index\.php)#', $scriptName, $matches)) {
+        $root = function_exists('dfps_helper_normalize_root_path')
+            ? dfps_helper_normalize_root_path($matches[1])
+            : trim($matches[1], '/.');
+        return $root === '' ? '' : $root;
+    }
+
     $basePath = function_exists('dfps_helper_normalize_root_path')
         ? dfps_helper_normalize_root_path(dirname($scriptName))
         : trim(dirname($scriptName), '/.');

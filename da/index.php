@@ -1,11 +1,14 @@
 <?php
-session_start();
-include '../includes/db.php';
-include '../includes/NotificationModel.php';
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+include_once __DIR__ . '/../includes/db.php';
+include_once __DIR__ . '/../includes/NotificationModel.php';
+require_once __DIR__ . '/../includes/url_helpers.php';
 
 // Authentication and Authorization Check
 if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['DA', 'DA_SUPER_ADMIN'])) {
-    header("Location: ../login.php");
+    header("Location: " . dfps_helper_url('login'));
     exit;
 }
 
@@ -99,9 +102,9 @@ include '../includes/universal_header.php';
                 <h1 class="display-5 fw-bold mb-2">DA Command Center</h1>
                 <p class="lead opacity-75">Ensuring fair market pricing and supporting our local agricultural community.</p>
                 <div class="d-flex gap-2 mt-4 flex-wrap">
-                    <a href="announcements.php" class="btn btn-light rounded-pill px-4">Post Announcement</a>
-                    <a href="produce.php" class="btn btn-outline-light rounded-pill px-4">Update SRP</a>
-                    <a href="message.php" class="btn btn-warning rounded-pill px-4 text-dark fw-bold"><i class="bi bi-chat-dots-fill me-2"></i>Open Messages</a>
+                    <a href="<?php echo dfps_url('da/announcements'); ?>" class="btn btn-light rounded-pill px-4">Post Announcement</a>
+                    <a href="<?php echo dfps_url('da/produce'); ?>" class="btn btn-outline-light rounded-pill px-4">Update SRP</a>
+                    <a href="<?php echo dfps_url('da/message'); ?>" class="btn btn-warning rounded-pill px-4 text-dark fw-bold"><i class="bi bi-chat-dots-fill me-2"></i>Open Messages</a>
                 </div>
             </div>
             <div class="col-md-4 text-end d-none d-md-block">
@@ -113,7 +116,7 @@ include '../includes/universal_header.php';
     <!-- Analytics Overview -->
     <div class="row g-4 mb-4">
         <div class="col-md-3">
-            <a href="users.php?role=FARMER" class="text-decoration-none">
+            <a href="<?php echo dfps_url('da/users'); ?>?role=FARMER" class="text-decoration-none">
                 <div class="stat-box h-100 shadow-sm border-0">
                     <div class="stat-icon bg-primary text-white"><i class="bi bi-people-fill"></i></div>
                     <h6 class="text-muted mb-1 small fw-bold">Total Farmers</h6>
@@ -122,7 +125,7 @@ include '../includes/universal_header.php';
             </a>
         </div>
         <div class="col-md-3">
-            <a href="listings.php?status=ACTIVE" class="text-decoration-none">
+            <a href="<?php echo dfps_url('da/listings'); ?>?status=ACTIVE" class="text-decoration-none">
                 <div class="stat-box h-100 shadow-sm border-0">
                     <div class="stat-icon bg-success text-white"><i class="bi bi-cart-check-fill"></i></div>
                     <h6 class="text-muted mb-1 small fw-bold">Active Listings</h6>
@@ -131,7 +134,7 @@ include '../includes/universal_header.php';
             </a>
         </div>
         <div class="col-md-3">
-            <a href="users.php?role=BUYER" class="text-decoration-none">
+            <a href="<?php echo dfps_url('da/users'); ?>?role=BUYER" class="text-decoration-none">
                 <div class="stat-box h-100 shadow-sm border-0">
                     <div class="stat-icon bg-warning text-white"><i class="bi bi-cash-stack"></i></div>
                     <h6 class="text-muted mb-1 small fw-bold">Total Buyers</h6>
@@ -140,7 +143,7 @@ include '../includes/universal_header.php';
             </a>
         </div>
         <div class="col-md-3">
-            <a href="listings.php?status=SOLD" class="text-decoration-none">
+            <a href="<?php echo dfps_url('da/listings'); ?>?status=SOLD" class="text-decoration-none">
                 <div class="stat-box h-100 shadow-sm border-0">
                     <div class="stat-icon bg-info text-white"><i class="bi bi-check-circle-fill"></i></div>
                     <h6 class="text-muted mb-1 small fw-bold">Sold Products</h6>
@@ -264,7 +267,7 @@ include '../includes/universal_header.php';
                                             </div>
                                             <small class="text-muted"><?php echo date('M j, h:i A', strtotime($rp['created_at'])); ?></small>
                                             <div class="mt-2">
-                                                <a href="../buyer/view_post.php?id=<?php echo $rp['id']; ?>" target="_blank" class="btn btn-sm btn-outline-primary rounded-pill py-0 px-2" style="font-size: 0.75rem;">View</a>
+                                                <a href="<?php echo dfps_url('buyer/view_post'); ?>?id=<?php echo $rp['id']; ?>" target="_blank" class="btn btn-sm btn-outline-primary rounded-pill py-0 px-2" style="font-size: 0.75rem;">View</a>
                                             </div>
                                         </div>
                                     </div>
@@ -272,7 +275,7 @@ include '../includes/universal_header.php';
                             <?php endforeach; ?>
                         <?php endif; ?>
                     </div>
-                    <a href="listings.php" class="btn btn-outline-primary w-100 mt-3 rounded-pill">Manage All Listings</a>
+                    <a href="<?php echo dfps_url('da/listings'); ?>" class="btn btn-outline-primary w-100 mt-3 rounded-pill">Manage All Listings</a>
                 </div>
             </div>
         </div>
@@ -280,3 +283,4 @@ include '../includes/universal_header.php';
 </main>
 
 <?php include '../includes/universal_footer.php'; ?>
+

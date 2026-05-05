@@ -22,25 +22,62 @@ $params = [];
 $types = '';
 
 // 1. Total Count Query
-$count_query = "SELECT COUNT(*) FROM posts p WHERE 1=1";
-if ($farmer_id) { $count_query .= " AND p.farmer_id = $farmer_id"; }
-else { $count_query .= " AND p.status = 'ACTIVE'"; }
+$count_query = "SELECT COUNT(*) as total FROM posts p WHERE p.is_deleted = 0";
+$c_params = [];
+$c_types = '';
+
+if ($farmer_id) { 
+    $count_query .= " AND p.farmer_id = ?"; 
+    $c_params[] = $farmer_id;
+    $c_types .= 'i';
+} else { 
+    $count_query .= " AND p.status = 'ACTIVE' AND p.status != 'ARCHIVED'"; 
+}
 
 if (!empty($search_term)) {
-    $count_query .= " AND (p.title LIKE '%$search_term%')";
+    $count_query .= " AND (p.title LIKE ?)";
+    $c_params[] = "%" . $search_term . "%";
+    $c_types .= 's';
 }
-if ($filter_produce) { $count_query .= " AND p.produce_id = $filter_produce"; }
-if ($filter_area) { $count_query .= " AND p.area_id = $filter_area"; }
-if ($min_price) { $count_query .= " AND p.price >= $min_price"; }
-if ($max_price) { $count_query .= " AND p.price <= $max_price"; }
+if ($filter_produce) { 
+    $count_query .= " AND p.produce_id = ?"; 
+    $c_params[] = $filter_produce;
+    $c_types .= 'i';
+}
+if ($filter_area) { 
+    $count_query .= " AND p.area_id = ?"; 
+    $c_params[] = $filter_area;
+    $c_types .= 'i';
+}
+if ($min_price) { 
+    $count_query .= " AND p.price >= ?"; 
+    $c_params[] = $min_price;
+    $c_types .= 'd';
+}
+if ($max_price) { 
+    $count_query .= " AND p.price <= ?"; 
+    $c_params[] = $max_price;
+    $c_types .= 'd';
+}
 
-$total_rows = $conn->query($count_query)->fetch_row()[0];
+$total_rows = 0;
+if (!empty($c_params)) {
+    $c_stmt = $conn->prepare($count_query);
+    $c_stmt->bind_param($c_types, ...$c_params);
+    $c_stmt->execute();
+    $c_res = dfps_fetch_assoc($c_stmt);
+    $total_rows = (int)($c_res['total'] ?? 0);
+    $c_stmt->close();
+} else {
+    $c_res = $conn->query($count_query)->fetch_assoc();
+    $total_rows = (int)($c_res['total'] ?? 0);
+}
 $total_pages = ceil($total_rows / $limit);
 
 // 2. Data Query
 $base_query = "
     SELECT
-        p.id, p.title, p.price, p.unit, p.quantity,
+        p.id, p.title, p.price, p.unit, p.quantity, p.status,
         pr.name AS produce_name,
         a.name AS area_name,
         u.first_name AS farmer_first_name,
@@ -50,7 +87,7 @@ $base_query = "
     JOIN produce pr ON p.produce_id = pr.id
     JOIN users u ON p.farmer_id = u.id
     LEFT JOIN areas a ON p.area_id = a.id
-    WHERE 1=1
+    WHERE p.is_deleted = 0
 ";
 
 if ($farmer_id) {

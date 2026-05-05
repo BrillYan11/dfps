@@ -3,6 +3,9 @@ ini_set('display_errors', 0);
 error_reporting(E_ALL);
 header('Content-Type: application/json');
 
+// Security inclusion
+require_once __DIR__ . '/../includes/security.php';
+
 function json_out($data) {
     echo json_encode($data, JSON_PRETTY_PRINT);
     exit;
@@ -12,6 +15,16 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     json_out([
         'success' => false,
         'message' => 'POST required'
+    ]);
+}
+
+// CSRF Protection
+$token = $_POST['csrf_token'] ?? '';
+if (!validate_csrf_token($token)) {
+    http_response_code(403);
+    json_out([
+        'success' => false,
+        'message' => 'CSRF validation failed'
     ]);
 }
 

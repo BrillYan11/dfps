@@ -173,7 +173,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function checkSmsServer() {
         if (dispatchType.value === 'sim_sms') {
-            fetch('../action/DA/check_sms_status.php')
+            fetch('action/DA/check_sms_status.php')
                 .then(r => r.json())
                 .then(data => {
                     if (data.success) {
@@ -240,7 +240,7 @@ document.addEventListener('DOMContentLoaded', function() {
         submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Fetching Users...';
         
         try {
-            const usersRes = await fetch(`../action/DA/get_broadcast_users.php?target_role=${targetRole}&target_area=${targetArea}`);
+            const usersRes = await fetch(`action/DA/get_broadcast_users.php?target_role=${targetRole}&target_area=${targetArea}`);
             const usersData = await usersRes.json();
             
             if (!usersData.success || usersData.count === 0) {
@@ -270,6 +270,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 progressDetails.textContent = `Processed ${i} / ${total} users`;
 
                 const formData = new FormData();
+                formData.append('csrf_token', window.CSRF_TOKEN);
                 formData.append('user_id', user.id);
                 formData.append('dispatch_type', type);
                 formData.append('title', title);
@@ -277,7 +278,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 formData.append('phone', user.phone);
 
                 try {
-                    const sendRes = await fetch('../action/DA/send_broadcast_item.php', {
+                    const sendRes = await fetch('action/DA/send_broadcast_item.php', {
                         method: 'POST',
                         body: formData
                     });
@@ -320,12 +321,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
             // Log the summary
             const logData = new FormData();
+            logData.append('csrf_token', window.CSRF_TOKEN);
             logData.append('dispatch_type', type);
             logData.append('target_desc', document.getElementById('target_role').selectedOptions[0].text + (targetArea ? ' in selected area' : ' (Global)'));
             logData.append('count', successCount);
             logData.append('errors', failedCount);
             logData.append('title', title);
-            fetch('../action/DA/log_broadcast.php', { method: 'POST', body: logData });
+            fetch('action/DA/log_broadcast.php', { method: 'POST', body: logData });
 
             submitBtn.innerHTML = '<i class="bi bi-check-all me-2"></i> Finished';
             
@@ -340,3 +342,4 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 <?php include '../includes/universal_footer.php'; ?>
+

@@ -1,7 +1,10 @@
 <?php
 // includes/db.php
+require_once __DIR__ . '/security.php';
+
 error_reporting(E_ALL);
-ini_set('display_errors', 1);
+ini_set('display_errors', 0);
+ini_set('log_errors', 1);
 
 $servername = getenv('DB_HOST') ?: "localhost";
 $username = getenv('DB_USER') ?: "root";
@@ -32,7 +35,8 @@ $conn->set_charset("utf8mb4");
 // --- SELF-HEALING: Ensure new messaging columns exist ---
 if (!function_exists('table_exists')) {
     function table_exists($conn, $table) {
-        $res = $conn->query("SHOW TABLES LIKE '$table'");
+        $safe_table = $conn->real_escape_string($table);
+        $res = $conn->query("SHOW TABLES LIKE '$safe_table'");
         return $res && $res->num_rows > 0;
     }
 }
@@ -131,6 +135,29 @@ if (table_exists($conn, 'produce')) {
     if ($res->num_rows == 0) {
         $conn->query("ALTER TABLE produce ADD COLUMN srp DECIMAL(10,2) DEFAULT 0.00");
     }
+
+    // Check for is_deleted in produce
+    $res = $conn->query("SHOW COLUMNS FROM produce LIKE 'is_deleted'");
+    if ($res->num_rows == 0) {
+        $conn->query("ALTER TABLE produce ADD COLUMN is_deleted TINYINT(1) NOT NULL DEFAULT 0");
+    }
+}
+
+if (table_exists($conn, 'posts')) {
+    // Check for is_deleted in posts
+    $res = $conn->query("SHOW COLUMNS FROM posts LIKE 'is_deleted'");
+    if ($res->num_rows == 0) {
+        $conn->query("ALTER TABLE posts ADD COLUMN is_deleted TINYINT(1) NOT NULL DEFAULT 0");
+    }
+
+    // Add ARCHIVED to status enum if missing
+    $res = $conn->query("SHOW COLUMNS FROM posts LIKE 'status'");
+    if ($res->num_rows > 0) {
+        $row = $res->fetch_assoc();
+        if (strpos($row['Type'], 'ARCHIVED') === false) {
+            $conn->query("ALTER TABLE posts MODIFY COLUMN status ENUM('ACTIVE', 'SOLD', 'HIDDEN', 'FLAGGED', 'ARCHIVED') DEFAULT 'ACTIVE'");
+        }
+    }
 }
 
 if (table_exists($conn, 'users')) {
@@ -152,4 +179,3 @@ if (table_exists($conn, 'users')) {
         $conn->query("ALTER TABLE users ADD COLUMN barangay VARCHAR(255) DEFAULT NULL");
     }
 }
-?>

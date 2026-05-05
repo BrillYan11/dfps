@@ -1,5 +1,13 @@
 RewriteEngine On
 
+# Security: Suppress information disclosure headers
+<IfModule mod_headers.c>
+    Header unset X-Powered-By
+    Header unset Server
+    Header always unset X-Powered-By
+    Header always unset Server
+</IfModule>
+
 # Let Apache serve static assets directly.
 RewriteCond %{REQUEST_URI} \.(?:css|js|mjs|map|png|jpe?g|gif|svg|webp|ico|woff2?|ttf|eot|json|txt|xml|pdf)$ [NC]
 RewriteRule ^ - [L]

@@ -1,6 +1,8 @@
 <?php
 include 'includes/db.php';
 
+csrf_guard();
+
 $appUrl = static function (string $path = ''): string {
     if (function_exists('dfps_url')) {
         return dfps_url($path);
@@ -97,6 +99,7 @@ include 'includes/universal_header.php';
 
                     <?php if (empty($success_message) && !($error_message === "Invalid or expired token." || $error_message === "The reset link has expired. Please request a new one.")): ?>
                     <form action="<?php echo $appUrl('reset_password'); ?>" method="POST">
+                        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(get_csrf_token()); ?>">
                         <input type="hidden" name="token" value="<?php echo htmlspecialchars($token); ?>">
                         <div class="mb-3">
                             <label for="password" class="form-label">New Password</label>
