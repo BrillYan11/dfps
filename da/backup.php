@@ -124,7 +124,7 @@ include '../includes/universal_header.php';
                         <i class="bi bi-cloud-download text-primary display-4 mb-3"></i>
                         <h4>Download Backup</h4>
                         <p class="text-muted">Generate a full SQL backup of the current database.</p>
-                        <a href="da/backup.php?action=download" class="btn btn-primary btn-lg rounded-pill px-5 fw-bold mt-2">
+                        <a href="<?php echo dfps_url('da/backup'); ?>?action=download" class="btn btn-primary btn-lg rounded-pill px-5 fw-bold mt-2">
                             <i class="bi bi-download me-2"></i> Download .SQL File
                         </a>
                     </div>

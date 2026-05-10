@@ -4,7 +4,7 @@ include '../includes/db.php';
 include '../includes/NotificationModel.php'; // Include the NotificationModel
 
 // Authentication and Authorization Check
-if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['BUYER', 'FARMER'])) {
+if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['BUYER', 'FARMER', 'DA', 'DA_SUPER_ADMIN'])) {
     header("Location: ../login.php");
     exit;
 }
@@ -16,7 +16,13 @@ $role = $_SESSION['role'];
 $post_id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
 
 if (!$post_id) {
-    header("Location: index.php");
+    if (in_array($role, ['DA', 'DA_SUPER_ADMIN'])) {
+        header("Location: ../da/index.php");
+    } elseif ($role === 'FARMER') {
+        header("Location: ../farmer/index.php");
+    } else {
+        header("Location: index.php");
+    }
     exit;
 }
 
@@ -24,7 +30,7 @@ if (!$post_id) {
 $post = null;
 $query = "
     SELECT
-        p.id, p.title, p.description, p.price, p.quantity, p.unit, p.created_at,
+        p.id, p.title, p.description, p.price, p.quantity, p.unit, p.created_at, p.status,
         pr.name AS produce_name,
         a.name AS area_name,
         u.id AS farmer_id,
@@ -35,7 +41,7 @@ $query = "
     JOIN produce pr ON p.produce_id = pr.id
     JOIN users u ON p.farmer_id = u.id
     LEFT JOIN areas a ON p.area_id = a.id
-    WHERE p.id = ? AND p.status = 'ACTIVE' AND p.is_deleted = 0
+    WHERE p.id = ? AND p.is_deleted = 0
 ";
 $stmt = $conn->prepare($query);
 $stmt->bind_param("i", $post_id);
@@ -43,9 +49,15 @@ $stmt->execute();
 $post = dfps_fetch_assoc($stmt);
 $stmt->close();
 
-// If post not found, redirect
-if (!$post) {
-    header("Location: index.php");
+// If post not found, or if Buyer tries to view non-ACTIVE post
+if (!$post || ($role === 'BUYER' && $post['status'] !== 'ACTIVE')) {
+    if (in_array($role, ['DA', 'DA_SUPER_ADMIN'])) {
+        header("Location: ../da/index.php");
+    } elseif ($role === 'FARMER') {
+        header("Location: ../farmer/index.php");
+    } else {
+        header("Location: index.php");
+    }
     exit;
 }
 
@@ -115,7 +127,11 @@ include '../includes/universal_header.php';
 <div class="container my-4">
 
     <div class="d-flex align-items-center mb-3">
-      <a href="<?php echo dfps_url('buyer/'); ?>" class="btn btn-sm btn-outline-secondary me-2"><i class="bi bi-arrow-left"></i> Back to Market</a>
+      <?php if (in_array($role, ['DA', 'DA_SUPER_ADMIN'])): ?>
+        <a href="<?php echo dfps_url('da/'); ?>" class="btn btn-sm btn-outline-secondary me-2"><i class="bi bi-arrow-left"></i> Back to Dashboard</a>
+      <?php else: ?>
+        <a href="<?php echo dfps_url('buyer/'); ?>" class="btn btn-sm btn-outline-secondary me-2"><i class="bi bi-arrow-left"></i> Back to Market</a>
+      <?php endif; ?>
     </div>
 
     <?php if ($interest_success): ?>
@@ -197,7 +213,13 @@ include '../includes/universal_header.php';
                         <?php endif; ?>
 
                         <?php if ($current_user_id != $post['farmer_id']): ?>
-                            <a href="<?php echo dfps_url('buyer/message'); ?>?receiver_id=<?php echo $post['farmer_id']; ?>&post_id=<?php echo $post_id; ?>" class="btn btn-outline-secondary btn-lg w-100">
+                            <?php 
+                                $msg_url = dfps_url('buyer/message') . "?receiver_id=" . $post['farmer_id'] . "&post_id=" . $post_id;
+                                if (in_array($role, ['DA', 'DA_SUPER_ADMIN'])) {
+                                    $msg_url = dfps_url('da/message') . "?receiver_id=" . $post['farmer_id'];
+                                }
+                            ?>
+                            <a href="<?php echo $msg_url; ?>" class="btn btn-outline-secondary btn-lg w-100">
                                 <i class="bi bi-chat-dots-fill"></i> Send a Message
                             </a>
                         <?php else: ?>

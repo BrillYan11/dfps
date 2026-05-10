@@ -1,5 +1,57 @@
 // js/realtime.js
 
+/**
+ * Global helper to escape HTML characters in strings
+ * Prevents XSS when rendering dynamic content
+ */
+function escapeHTML(str) {
+    if (!str) return '';
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+
+/**
+ * Global helper for polished confirmation dialogs
+ * Replaces browser native confirm()
+ */
+function confirmAction(options) {
+    const modalEl = document.getElementById('confirmActionModal');
+    if (!modalEl) return;
+
+    const modal = new bootstrap.Modal(modalEl);
+    const titleEl = document.getElementById('confirmTitle');
+    const bodyEl = document.getElementById('confirmBody');
+    const confirmBtn = document.getElementById('confirmActionBtn');
+
+    titleEl.textContent = options.title || 'Are you sure?';
+    bodyEl.textContent = options.body || 'Do you want to proceed?';
+    confirmBtn.textContent = options.confirmText || 'Confirm';
+    
+    // Set button color based on danger
+    confirmBtn.className = options.isDanger ? 'btn btn-danger rounded-pill px-4' : 'btn btn-primary rounded-pill px-4';
+
+    // Handle button click
+    const handleConfirm = () => {
+        if (typeof options.onConfirm === 'function') {
+            options.onConfirm();
+        }
+        modal.hide();
+        confirmBtn.removeEventListener('click', handleConfirm);
+    };
+
+    confirmBtn.addEventListener('click', handleConfirm);
+    
+    // Cleanup on hide
+    modalEl.addEventListener('hidden.bs.modal', () => {
+        confirmBtn.removeEventListener('click', handleConfirm);
+    }, { once: true });
+
+    modal.show();
+}
+
+window.confirmAction = confirmAction;
+
 document.addEventListener('DOMContentLoaded', function() {
     const NOTIFICATION_POLL_INTERVAL = 5000; // 5 seconds
     const MESSAGE_POLL_INTERVAL = 3000;      // 3 seconds

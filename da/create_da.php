@@ -70,7 +70,7 @@ include '../includes/universal_header.php';
                             <div>
                                 <i class="bi bi-check-circle-fill me-2"></i><?php echo htmlspecialchars($success_msg); ?>
                             </div>
-                            <a href="da/users.php" class="btn btn-sm btn-dark rounded-pill px-3 ms-3 shadow-sm">
+                            <a href="<?php echo dfps_url('da/users'); ?>" class="btn btn-sm btn-dark rounded-pill px-3 ms-3 shadow-sm">
                                 <i class="bi bi-arrow-left me-1"></i> Back to Users
                             </a>
                         </div>

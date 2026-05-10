@@ -187,10 +187,10 @@ include '../includes/universal_header.php';
             <div class="dropdown">
                 <button class="btn btn-sm btn-light rounded-circle" data-bs-toggle="dropdown"><i class="bi bi-three-dots"></i></button>
                 <ul class="dropdown-menu dropdown-menu-end shadow border-0">
-                    <li><a class="dropdown-item" href="da/message?view=active"><i class="bi bi-chat-fill me-2"></i>Active Chats</a></li>
-                    <li><a class="dropdown-item" href="da/message?view=archived"><i class="bi bi-archive-fill me-2"></i>Archived Chats</a></li>
+                    <li><a class="dropdown-item" href="<?php echo dfps_url('da/message'); ?>?view=active"><i class="bi bi-chat-fill me-2"></i>Active Chats</a></li>
+                    <li><a class="dropdown-item" href="<?php echo dfps_url('da/message'); ?>?view=archived"><i class="bi bi-archive-fill me-2"></i>Archived Chats</a></li>
                     <li><hr class="dropdown-divider"></li>
-                    <li><a class="dropdown-item text-primary" href="action/Message/mark_all_read.php"><i class="bi bi-check-all me-2"></i>Mark all as read</a></li>
+                    <li><a class="dropdown-item text-primary" href="<?php echo dfps_url('action/Message/mark_all_read.php'); ?>"><i class="bi bi-check-all me-2"></i>Mark all as read</a></li>
                 </ul>
             </div>
         </div>
@@ -208,7 +208,7 @@ include '../includes/universal_header.php';
                     $isActive = ($selected_conv_id == $conv['conversation_id']);
                     $disp_msg = $conv['last_message_deleted'] ? 'Message removed' : ($conv['last_message'] ?: 'No messages yet');
                 ?>
-                    <a href="da/message?conv_id=<?php echo $conv['conversation_id']; ?>&view=<?php echo $view; ?>" class="conv-item <?php echo $isActive ? 'active' : ''; ?>">
+                    <a href="<?php echo dfps_url('da/message'); ?>?conv_id=<?php echo $conv['conversation_id']; ?>&view=<?php echo $view; ?>" class="conv-item <?php echo $isActive ? 'active' : ''; ?>">
                         <div class="conv-avatar overflow-hidden">
                             <?php if (!empty($conv['participant_profile_picture'])): ?>
                                 <img src="<?php echo dfps_helper_url($conv['participant_profile_picture']); ?>" class="w-100 h-100" style="object-fit: cover;">
@@ -240,13 +240,13 @@ include '../includes/universal_header.php';
             <div class="d-flex h-100 flex-column justify-content-center align-items-center text-muted p-5 text-center">
                 <i class="bi bi-chat-dots" style="font-size: 5rem; opacity: 0.15; color: var(--primary-color);"></i>
                 <h5 class="mt-3">Select a conversation to start messaging users</h5>
-                <p>You can start a chat by visiting the <a href="da/users">User Management</a> section.</p>
+                <p>You can start a chat by visiting the <a href="<?php echo dfps_url('da/users'); ?>">User Management</a> section.</p>
             </div>
         <?php else: ?>
             <div class="chat-header justify-content-between">
                 <div class="d-flex align-items-center">
                     <!-- Mobile Back Button -->
-                    <a href="da/message?view=<?php echo $view; ?>" class="btn btn-sm btn-light rounded-circle me-2 d-lg-none">
+                    <a href="<?php echo dfps_url('da/message'); ?>?view=<?php echo $view; ?>" class="btn btn-sm btn-light rounded-circle me-2 d-lg-none">
                         <i class="bi bi-arrow-left"></i>
                     </a>
 
@@ -292,7 +292,7 @@ include '../includes/universal_header.php';
             </div>
 
             <div class="chat-footer">
-                <form method="POST" action="da/message?conv_id=<?php echo $selected_conv_id; ?>&view=<?php echo $view; ?>">
+                <form method="POST" action="<?php echo dfps_url('da/message'); ?>?conv_id=<?php echo $selected_conv_id; ?>&view=<?php echo $view; ?>">
                     <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(get_csrf_token()); ?>">
                     <div class="message-input-wrapper">
                         <textarea name="message_body" class="message-input" rows="1" placeholder="Type a message to the <?php echo strtolower($selected_participant['participant_role']); ?>..." required id="message-input"></textarea>
@@ -328,11 +328,11 @@ include '../includes/universal_header.php';
                 <div class="info-action-btn"><i class="bi bi-calendar3"></i><span>Member since <?php echo date('M Y', strtotime($selected_participant['participant_since'])); ?></span></div>
 
                 <hr class="w-100 my-2">
-                <a href="action/Message/archive.php?conv_id=<?php echo $selected_conv_id; ?>&action=<?php echo $selected_participant['is_archived'] ? 'unarchive' : 'archive'; ?>" class="info-action-btn">
+                <a href="<?php echo dfps_url('action/Message/archive.php'); ?>?conv_id=<?php echo $selected_conv_id; ?>&action=<?php echo $selected_participant['is_archived'] ? 'unarchive' : 'archive'; ?>" class="info-action-btn">
                     <i class="bi bi-archive<?php echo $selected_participant['is_archived'] ? '-fill' : ''; ?>"></i>
                     <span><?php echo $selected_participant['is_archived'] ? 'Unarchive' : 'Archive'; ?> Chat</span>
                 </a>
-                <a href="action/Message/delete_conversation.php?conv_id=<?php echo $selected_conv_id; ?>" class="info-action-btn danger" onclick="return confirm('Are you sure? This will remove the conversation from your list.')">
+                <a href="<?php echo dfps_url('action/Message/delete_conversation.php'); ?>?conv_id=<?php echo $selected_conv_id; ?>" class="info-action-btn danger" onclick="return confirm('Are you sure? This will remove the conversation from your list.')">
                     <i class="bi bi-trash-fill"></i><span>Delete Conversation</span>
                 </a>
             </div>

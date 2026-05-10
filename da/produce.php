@@ -55,7 +55,7 @@ include '../includes/universal_header.php';
                         <div class="alert alert-danger d-flex align-items-center"><i class="bi bi-exclamation-triangle-fill me-2"></i><?php echo htmlspecialchars($error_msg); ?></div>
                     <?php endif; ?>
 
-                    <form method="POST" action="da/produce.php">
+                    <form method="POST" action="da/produce">
                         <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(get_csrf_token()); ?>">
                         <div class="mb-3">
                             <label class="form-label fw-bold">Produce Name</label>
@@ -108,28 +108,29 @@ include '../includes/universal_header.php';
                                             <td><span class="badge bg-light text-dark border"><?php echo htmlspecialchars($item['unit']); ?></span></td>
                                             <td class="fw-bold text-primary">₱<?php echo number_format($item['srp'], 2); ?></td>
                                             <td>
-                                                <span class="badge <?php echo $item['is_active'] ? 'bg-success' : 'bg-danger'; ?>">
+                                                <span class="badge rounded-pill <?php echo $item['is_active'] ? 'bg-success-subtle text-success border border-success' : 'bg-danger-subtle text-danger border border-danger'; ?> px-3">
+                                                    <i class="bi <?php echo $item['is_active'] ? 'bi-check-circle-fill' : 'bi-x-circle-fill'; ?> me-1"></i>
                                                     <?php echo $item['is_active'] ? 'Active' : 'Inactive'; ?>
                                                 </span>
                                             </td>
                                             <td class="text-end pe-4">
                                                 <div class="d-flex justify-content-end gap-2">
-                                                    <button class="btn btn-sm btn-outline-primary rounded-pill edit-btn" 
+                                                    <button class="btn btn-sm btn-outline-primary rounded-pill edit-btn px-3" 
                                                             data-name="<?php echo htmlspecialchars($item['name']); ?>" 
                                                             data-unit="<?php echo htmlspecialchars($item['unit']); ?>" 
                                                             data-srp="<?php echo $item['srp']; ?>">
-                                                        <i class="bi bi-pencil"></i> Edit
+                                                        <i class="bi bi-pencil me-1"></i> Edit
                                                     </button>
                                                     <button type="button" 
                                                        onclick="toggleProduce(<?php echo $item['id']; ?>, <?php echo $item['is_active'] ? '0' : '1'; ?>)"
-                                                       class="btn btn-sm <?php echo $item['is_active'] ? 'btn-outline-warning' : 'btn-outline-success'; ?> rounded-pill"
+                                                       class="btn btn-sm <?php echo $item['is_active'] ? 'btn-outline-warning' : 'btn-outline-success'; ?> rounded-pill px-3"
                                                        title="<?php echo $item['is_active'] ? 'Deactivate' : 'Activate'; ?>">
-                                                        <i class="bi <?php echo $item['is_active'] ? 'bi-slash-circle' : 'bi-check-circle'; ?>"></i>
+                                                        <i class="bi <?php echo $item['is_active'] ? 'bi-slash-circle' : 'bi-check-circle'; ?> me-1"></i> <?php echo $item['is_active'] ? 'Disable' : 'Enable'; ?>
                                                     </button>
                                                     <button type="button" 
                                                        onclick="deleteProduce(<?php echo $item['id']; ?>)"
-                                                       class="btn btn-sm btn-outline-danger rounded-pill">
-                                                        <i class="bi bi-trash"></i>
+                                                       class="btn btn-sm btn-outline-danger rounded-pill px-3">
+                                                        <i class="bi bi-trash me-1"></i> Delete
                                                     </button>
                                                 </div>
                                             </td>
@@ -145,7 +146,41 @@ include '../includes/universal_header.php';
     </div>
 </main>
 
+<!-- Toast Container -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+    <div id="statusToast" class="toast border-0 shadow-lg rounded-4" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header border-0 rounded-top-4 bg-white">
+            <i class="bi bi-info-circle-fill me-2" id="toastIcon"></i>
+            <strong class="me-auto" id="toastTitle">Notification</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+        <div class="toast-body bg-white rounded-bottom-4" id="toastBody"></div>
+    </div>
+</div>
+
 <script>
+    function showNotification(title, message, type = 'info') {
+        const toastEl = document.getElementById('statusToast');
+        const toastBody = document.getElementById('toastBody');
+        const toastTitle = document.getElementById('toastTitle');
+        const toastIcon = document.getElementById('toastIcon');
+        
+        toastTitle.textContent = title;
+        toastBody.textContent = message;
+        
+        toastIcon.className = 'bi me-2 ';
+        if (type === 'success') {
+            toastIcon.classList.add('bi-check-circle-fill', 'text-success');
+        } else if (type === 'error') {
+            toastIcon.classList.add('bi-exclamation-triangle-fill', 'text-danger');
+        } else {
+            toastIcon.classList.add('bi-info-circle-fill', 'text-primary');
+        }
+
+        const toast = new bootstrap.Toast(toastEl, { delay: 5000 });
+        toast.show();
+    }
+
     document.querySelectorAll('.edit-btn').forEach(btn => {
         btn.addEventListener('click', function() {
             document.getElementById('produce_name').value = this.dataset.name;
@@ -156,48 +191,73 @@ include '../includes/universal_header.php';
     });
 
     function toggleProduce(id, status) {
-        if (!confirm('Change status of this produce?')) return;
-        
-        const formData = new FormData();
-        formData.append('id', id);
-        formData.append('status', status);
-        formData.append('csrf_token', '<?php echo get_csrf_token(); ?>');
+        confirmAction({
+            title: status == 1 ? 'Enable Produce' : 'Disable Produce',
+            body: `Are you sure you want to ${status == 1 ? 'enable' : 'disable'} this produce item?`,
+            confirmText: status == 1 ? 'Enable' : 'Disable',
+            onConfirm: () => {
+                const formData = new FormData();
+                formData.append('id', id);
+                formData.append('status', status);
+                formData.append('csrf_token', '<?php echo get_csrf_token(); ?>');
 
-        fetch('action/DA/toggle_produce.php', {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                location.reload();
-            } else {
-                alert(data.error || 'Failed to toggle status');
+                fetch(`${window.DFPS_APP_ROOT}/action/DA/toggle_produce.php`, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => {
+                    if (!response.ok) throw new Error('Network response was not ok');
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.success) {
+                        showNotification('Success', 'Produce status updated!', 'success');
+                        setTimeout(() => location.reload(), 1000);
+                    } else {
+                        showNotification('Error', data.error || 'Failed to toggle status', 'error');
+                    }
+                })
+                .catch(err => {
+                    console.error(err);
+                    showNotification('System Error', 'An unexpected error occurred.', 'error');
+                });
             }
-        })
-        .catch(err => console.error(err));
+        });
     }
 
     function deleteProduce(id) {
-        if (!confirm('Are you sure you want to delete this produce? This action cannot be undone and will only succeed if the produce is not linked to any posts.')) return;
-        
-        const formData = new FormData();
-        formData.append('id', id);
-        formData.append('csrf_token', '<?php echo get_csrf_token(); ?>');
+        confirmAction({
+            title: 'Delete Produce',
+            body: 'Are you sure you want to delete this produce? This action cannot be undone and will only succeed if the produce is not linked to any posts.',
+            confirmText: 'Delete',
+            isDanger: true,
+            onConfirm: () => {
+                const formData = new FormData();
+                formData.append('id', id);
+                formData.append('csrf_token', '<?php echo get_csrf_token(); ?>');
 
-        fetch('action/DA/delete_produce.php', {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                location.reload();
-            } else {
-                alert(data.error || 'Failed to delete produce');
+                fetch(`${window.DFPS_APP_ROOT}/action/DA/delete_produce.php`, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => {
+                    if (!response.ok) throw new Error('Network response was not ok');
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.success) {
+                        showNotification('Deleted', 'Produce removed from list.', 'success');
+                        setTimeout(() => location.reload(), 1000);
+                    } else {
+                        showNotification('Error', data.error || 'Failed to delete produce', 'error');
+                    }
+                })
+                .catch(err => {
+                    console.error(err);
+                    showNotification('System Error', 'An unexpected error occurred.', 'error');
+                });
             }
-        })
-        .catch(err => console.error(err));
+        });
     }
 </script>
 

@@ -13,12 +13,12 @@ if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['DA', 'DA_SUPE
     exit;
 }
 
-// Support both POST (new) and GET (legacy fallback, but now guarded by CSRF which mostly requires POST)
+// Support both POST (new) and GET (legacy fallback)
 $method = $_SERVER['REQUEST_METHOD'];
 $user_id = filter_input($method === 'POST' ? INPUT_POST : INPUT_GET, 'id', FILTER_VALIDATE_INT);
 $status = filter_input($method === 'POST' ? INPUT_POST : INPUT_GET, 'status', FILTER_VALIDATE_INT);
 
-if ($user_id !== null && $status !== null) {
+if ($user_id !== null && $status !== null && $user_id !== false && $status !== false) {
     // Get user info for logging before update
     $user_info_stmt = $conn->prepare("SELECT first_name, last_name, role, is_active FROM users WHERE id = ?");
     $user_info_stmt->bind_param("i", $user_id);
@@ -60,6 +60,17 @@ if ($user_id !== null && $status !== null) {
     }
     $stmt->close();
 } else {
-    echo json_encode(['success' => false, 'error' => 'Invalid parameters.']);
+    echo json_encode([
+        'success' => false, 
+        'error' => 'Invalid parameters.',
+        'debug' => [
+            'received_id' => $_POST['id'] ?? 'MISSING',
+            'received_status' => $_POST['status'] ?? 'MISSING',
+            'filtered_id' => $user_id,
+            'filtered_status' => $status,
+            'method' => $_SERVER['REQUEST_METHOD'],
+            'content_type' => $_SERVER['CONTENT_TYPE'] ?? 'NONE'
+        ]
+    ]);
 }
 exit;

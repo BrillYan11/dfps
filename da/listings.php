@@ -144,10 +144,10 @@ include '../includes/universal_header.php';
             </h5>
             
             <div class="d-flex gap-2">
-                <a href="da/listings.php" class="btn btn-sm <?php echo empty($status_filter) ? 'btn-secondary' : 'btn-outline-secondary'; ?> rounded-pill px-3">All</a>
-                <a href="da/listings.php?status=ACTIVE" class="btn btn-sm <?php echo ($status_filter === 'ACTIVE') ? 'btn-success' : 'btn-outline-success'; ?> rounded-pill px-3">Active</a>
-                <a href="da/listings.php?status=SOLD" class="btn btn-sm <?php echo ($status_filter === 'SOLD') ? 'btn-info text-white' : 'btn-outline-info'; ?> rounded-pill px-3">Sold</a>
-                <a href="da/listings.php?status=FLAGGED" class="btn btn-sm <?php echo ($status_filter === 'FLAGGED') ? 'btn-danger' : 'btn-outline-danger'; ?> rounded-pill px-3">Flagged</a>
+                <a href="<?php echo dfps_url('da/listings'); ?>" class="btn btn-sm <?php echo empty($status_filter) ? 'btn-secondary' : 'btn-outline-secondary'; ?> rounded-pill px-3">All</a>
+                <a href="<?php echo dfps_url('da/listings'); ?>?status=ACTIVE" class="btn btn-sm <?php echo ($status_filter === 'ACTIVE') ? 'btn-success' : 'btn-outline-success'; ?> rounded-pill px-3">Active</a>
+                <a href="<?php echo dfps_url('da/listings'); ?>?status=SOLD" class="btn btn-sm <?php echo ($status_filter === 'SOLD') ? 'btn-info text-white' : 'btn-outline-info'; ?> rounded-pill px-3">Sold</a>
+                <a href="<?php echo dfps_url('da/listings'); ?>?status=FLAGGED" class="btn btn-sm <?php echo ($status_filter === 'FLAGGED') ? 'btn-danger' : 'btn-outline-danger'; ?> rounded-pill px-3">Flagged</a>
             </div>
         </div>
         <div class="card-body p-0">
@@ -161,12 +161,13 @@ include '../includes/universal_header.php';
                             <th>Farmer</th>
                             <th>Location</th>
                             <th>Status</th>
-                            <th class="text-end pe-4">Date</th>
+                            <th>Date</th>
+                            <th class="text-end pe-4">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php if (empty($listings)): ?>
-                            <tr><td colspan="8" class="text-center py-5 text-muted">No product listings found.</td></tr>
+                            <tr><td colspan="9" class="text-center py-5 text-muted">No product listings found.</td></tr>
                         <?php else: ?>
                             <?php foreach ($listings as $listing): 
                                 $img_q = $conn->prepare("SELECT file_path FROM post_images WHERE post_id = ? ORDER BY id ASC LIMIT 1");
@@ -206,8 +207,11 @@ include '../includes/universal_header.php';
                                             <?php echo $listing['status']; ?>
                                         </span>
                                     </td>
-                                    <td class="text-end pe-4 small text-muted">
+                                    <td class="small text-muted">
                                         <?php echo date('M j, Y', strtotime($listing['created_at'])); ?>
+                                    </td>
+                                    <td class="text-end pe-4">
+                                        <a href="<?php echo dfps_url('buyer/view_post'); ?>?id=<?php echo $listing['id']; ?>" target="_blank" class="btn btn-sm btn-outline-primary rounded-pill px-3">View</a>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>

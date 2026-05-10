@@ -19,14 +19,6 @@ $dfpsRouteAliases = [
     'reset_password.php' => 'reset_password.php',
     'logout' => 'logout.php',
     'logout.php' => 'logout.php',
-    'check_users' => 'check_users.php',
-    'check_users.php' => 'check_users.php',
-    'update_db' => 'update_db.php',
-    'update_db.php' => 'update_db.php',
-    'initialize_database' => 'initialize_database.php',
-    'initialize_database.php' => 'initialize_database.php',
-    'debug_db' => 'debug_db.php',
-    'debug_db.php' => 'debug_db.php',
     'buyer' => 'buyer/index.php',
     'buyer/index' => 'buyer/index.php',
     'buyer/index.php' => 'buyer/index.php',
@@ -90,16 +82,12 @@ $dfpsRouteAliases = [
 ];
 
 $dfpsAllowedRootScripts = [
-    'check_users.php',
     'forgot_password.php',
     'home.php',
     'login.php',
     'logout.php',
     'register.php',
     'reset_password.php',
-    'update_db.php',
-    'initialize_database.php',
-    'debug_db.php',
 ];
 
 $dfpsAllowedDirectories = [
@@ -300,7 +288,18 @@ function dfps_is_canonical_redirect_candidate(string $requestedPath): bool
         return false;
     }
 
-    return !str_starts_with($requestedPath, 'action/');
+    $basePath = dfps_application_base_path();
+    $pathWithoutBase = $requestedPath;
+    if ($basePath !== '') {
+        $basePrefix = $basePath . '/';
+        if ($requestedPath === $basePath) {
+            $pathWithoutBase = '';
+        } elseif (str_starts_with($requestedPath, $basePrefix)) {
+            $pathWithoutBase = substr($requestedPath, strlen($basePrefix));
+        }
+    }
+
+    return !str_starts_with($pathWithoutBase, 'action/');
 }
 
 function dfps_redirect_to_canonical_path(string $targetScriptPath): void

@@ -11,6 +11,7 @@ if (!file_exists($lang_file)) {
     $lang_file = __DIR__ . "/lang/en.php";
 }
 
+global $translations;
 $translations = include $lang_file;
 
 /**
@@ -19,5 +20,8 @@ $translations = include $lang_file;
  */
 function __t($key) {
     global $translations;
+    if (!isset($translations) || !is_array($translations)) {
+        return $key;
+    }
     return $translations[$key] ?? $key;
 }

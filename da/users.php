@@ -174,7 +174,7 @@ include __DIR__ . '/../includes/universal_header.php';
     <div class="user-featured-header">
         <div class="row g-4 align-items-center">
             <div class="col-md-6">
-                <h2 class="fw-bold mb-1">User Ecosystem Management</h2>
+                <h2 class="fw-bold mb-1">User Ecosystem Management <span class="badge bg-white bg-opacity-25 fs-6 fw-normal">v1.1.1</span></h2>
                 <p class="opacity-75 mb-0">Overseeing all farmers and buyers to ensure a secure and stable marketplace.</p>
             </div>
             <div class="col-md-6">
@@ -325,14 +325,14 @@ include __DIR__ . '/../includes/universal_header.php';
                                     </td>
                                     <td>
                                         <?php if($user['is_active']): ?>
-                                            <span class="badge rounded-pill bg-success-subtle text-success border border-success px-3">Active</span>
+                                            <span class="badge rounded-pill bg-success-subtle text-success border border-success px-3"><i class="bi bi-check-circle-fill me-1"></i> Active</span>
                                         <?php else: ?>
-                                            <span class="badge rounded-pill bg-danger-subtle text-danger border border-danger px-3">Deactivated</span>
+                                            <span class="badge rounded-pill bg-danger-subtle text-danger border border-danger px-3"><i class="bi bi-x-circle-fill me-1"></i> Deactivated</span>
                                         <?php endif; ?>
                                     </td>
                                     <td class="text-end pe-4">
                                         <div class="btn-group shadow-sm rounded-pill overflow-hidden">
-                                            <a href="da/message.php?receiver_id=<?php echo $user['id']; ?>" class="btn btn-sm btn-white border" title="Message User"><i class="bi bi-chat-dots"></i></a>
+                                            <a href="<?php echo dfps_url('da/message'); ?>?receiver_id=<?php echo $user['id']; ?>" class="btn btn-sm btn-white border" title="Message User"><i class="bi bi-chat-dots"></i></a>
                                             <button type="button" class="btn btn-sm btn-white border send-sms-btn" 
                                                     data-id="<?php echo $user['id']; ?>" 
                                                     data-name="<?php echo htmlspecialchars($user['first_name'] . ' ' . $user['last_name']); ?>"
@@ -341,7 +341,7 @@ include __DIR__ . '/../includes/universal_header.php';
                                                 <i class="bi bi-phone"></i>
                                             </button>
                                             <?php if($user['role'] === 'FARMER'): ?>
-                                                <a href="da/listings.php?farmer_id=<?php echo $user['id']; ?>" class="btn btn-sm btn-white border" title="View Listings"><i class="bi bi-grid-3x3"></i></a>
+                                                <a href="<?php echo dfps_url('da/listings'); ?>?farmer_id=<?php echo $user['id']; ?>" class="btn btn-sm btn-white border" title="View Listings"><i class="bi bi-grid-3x3"></i></a>
                                             <?php endif; ?>
                                             
                                             <?php if ($can_toggle): ?>
@@ -451,29 +451,46 @@ include __DIR__ . '/../includes/universal_header.php';
 
     // Toggle User Status via POST
     function toggleUser(userId, newStatus) {
-        if (!confirm(`${newStatus == 1 ? 'Activate' : 'Deactivate'} this user account?`)) return;
+        confirmAction({
+            title: newStatus == 1 ? 'Activate Account' : 'Deactivate Account',
+            body: `Are you sure you want to ${newStatus == 1 ? 'activate' : 'deactivate'} this user account?`,
+            confirmText: newStatus == 1 ? 'Activate' : 'Deactivate',
+            isDanger: newStatus == 0,
+            onConfirm: () => {
+                const formData = new FormData();
+                formData.append('id', userId);
+                formData.append('status', newStatus);
+                formData.append('csrf_token', window.CSRF_TOKEN);
 
-        const formData = new FormData();
-        formData.append('id', userId);
-        formData.append('status', newStatus);
-        formData.append('csrf_token', window.CSRF_TOKEN);
-
-        fetch('action/DA/toggle_user.php', {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                showNotification('Account Updated', data.message, 'success');
-                fetchUsers(); // Refresh the list
-            } else {
-                showNotification('Update Failed', data.error, 'error');
+                fetch(`${window.DFPS_APP_ROOT}/action/DA/toggle_user.php`, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => {
+                    if (!response.ok) throw new Error('Network response was not ok: ' + response.statusText);
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.success) {
+                        showNotification('Account Updated', data.message || 'Status changed successfully.', 'success');
+                        if (typeof window.DA_fetchUsers === 'function') {
+                            window.DA_fetchUsers(); // Refresh the list without page reload
+                        } else {
+                            location.reload();
+                        }
+                    } else {
+                        let errorMsg = data.error || 'Server rejected the update.';
+                        if (data.debug) {
+                            errorMsg += ' Debug: ' + JSON.stringify(data.debug);
+                        }
+                        showNotification('Update Failed', errorMsg, 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showNotification('System Error', 'Could not update status. ' + error.message, 'error');
+                });
             }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showNotification('System Error', 'An unexpected error occurred.', 'error');
         });
     }
 
@@ -523,7 +540,7 @@ include __DIR__ . '/../includes/universal_header.php';
 
             const formData = new FormData(this);
 
-            fetch('action/DA/send_sms.php', {
+            fetch(`${window.DFPS_APP_ROOT}/action/DA/send_sms.php`, {
                 method: 'POST',
                 body: formData
             })
@@ -603,7 +620,7 @@ include __DIR__ . '/../includes/universal_header.php';
                 page: page
             });
 
-            fetch(`da/get_users.php?${params.toString()}`)
+            fetch(`${window.DFPS_APP_ROOT}/da/get_users?${params.toString()}&t=${Date.now()}`)
                 .then(response => response.json())
                 .then(data => {
                     updateTable(data);
@@ -635,8 +652,8 @@ include __DIR__ . '/../includes/universal_header.php';
                     : '';
                 
                 const statusBadge = user.is_active == 1
-                    ? '<span class="badge rounded-pill bg-success-subtle text-success border border-success px-3">Active</span>'
-                    : '<span class="badge rounded-pill bg-danger-subtle text-danger border border-danger px-3">Deactivated</span>';
+                    ? '<span class="badge rounded-pill bg-success-subtle text-success border border-success px-3"><i class="bi bi-check-circle-fill me-1"></i> Active</span>'
+                    : '<span class="badge rounded-pill bg-danger-subtle text-danger border border-danger px-3"><i class="bi bi-x-circle-fill me-1"></i> Deactivated</span>';
 
                 const toggleBtnClass = user.is_active == 1 ? 'btn-outline-danger' : 'btn-outline-success';
                 const toggleIcon = user.is_active == 1 ? 'bi-person-x-fill' : 'bi-person-check-fill';
@@ -644,7 +661,7 @@ include __DIR__ . '/../includes/universal_header.php';
                 const newStatus = user.is_active == 1 ? '0' : '1';
 
                 const farmerListingBtn = user.role === 'FARMER'
-                    ? `<a href="da/listings.php?farmer_id=${user.id}" class="btn btn-sm btn-white border" title="View Listings"><i class="bi bi-grid-3x3"></i></a>`
+                    ? `<a href="${window.DFPS_APP_ROOT}/da/listings?farmer_id=${user.id}" class="btn btn-sm btn-white border" title="View Listings"><i class="bi bi-grid-3x3"></i></a>`
                     : '';
 
                 // Permission logic for toggle button
@@ -691,7 +708,7 @@ include __DIR__ . '/../includes/universal_header.php';
                         <td>${statusBadge}</td>
                         <td class="text-end pe-4">
                             <div class="btn-group shadow-sm rounded-pill overflow-hidden">
-                                <a href="da/message.php?receiver_id=${user.id}" class="btn btn-sm btn-white border" title="Message User"><i class="bi bi-chat-dots"></i></a>
+                                <a href="${window.DFPS_APP_ROOT}/da/message?receiver_id=${user.id}" class="btn btn-sm btn-white border" title="Message User"><i class="bi bi-chat-dots"></i></a>
                                 <button type="button" class="btn btn-sm btn-white border send-sms-btn" 
                                         data-id="${user.id}" 
                                         data-name="${fullName}"

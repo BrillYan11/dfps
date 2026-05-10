@@ -227,7 +227,7 @@ switch ($report_type) {
 
     <div class="row g-4 mb-5 no-print">
         <div class="col-md-3">
-            <a href="da/reports?type=users" class="text-decoration-none">
+            <a href="<?php echo dfps_url('da/reports'); ?>?type=users" class="text-decoration-none">
                 <div class="card h-100 border-0 shadow-sm report-card p-3 <?php echo $report_type === 'users' ? 'border-start border-4 border-primary' : ''; ?>">
                     <div class="d-flex align-items-center gap-3">
                         <div class="stat-icon bg-primary bg-opacity-10 text-primary rounded-3 p-2"><i class="bi bi-people-fill"></i></div>
@@ -237,7 +237,7 @@ switch ($report_type) {
             </a>
         </div>
         <div class="col-md-3">
-            <a href="da/reports?type=produce" class="text-decoration-none">
+            <a href="<?php echo dfps_url('da/reports'); ?>?type=produce" class="text-decoration-none">
                 <div class="card h-100 border-0 shadow-sm report-card p-3 <?php echo $report_type === 'produce' ? 'border-start border-4 border-success' : ''; ?>">
                     <div class="d-flex align-items-center gap-3">
                         <div class="stat-icon bg-success bg-opacity-10 text-success rounded-3 p-2"><i class="bi bi-egg-fried"></i></div>
@@ -247,7 +247,7 @@ switch ($report_type) {
             </a>
         </div>
         <div class="col-md-3">
-            <a href="da/reports?type=listings" class="text-decoration-none">
+            <a href="<?php echo dfps_url('da/reports'); ?>?type=listings" class="text-decoration-none">
                 <div class="card h-100 border-0 shadow-sm report-card p-3 <?php echo $report_type === 'listings' ? 'border-start border-4 border-warning' : ''; ?>">
                     <div class="d-flex align-items-center gap-3">
                         <div class="stat-icon bg-warning bg-opacity-10 text-warning rounded-3 p-2"><i class="bi bi-card-list"></i></div>
@@ -257,7 +257,7 @@ switch ($report_type) {
             </a>
         </div>
         <div class="col-md-3">
-            <a href="da/reports?type=price_analysis" class="text-decoration-none">
+            <a href="<?php echo dfps_url('da/reports'); ?>?type=price_analysis" class="text-decoration-none">
                 <div class="card h-100 border-0 shadow-sm report-card p-3 <?php echo $report_type === 'price_analysis' ? 'border-start border-4 border-info' : ''; ?>">
                     <div class="d-flex align-items-center gap-3">
                         <div class="stat-icon bg-info bg-opacity-10 text-info rounded-3 p-2"><i class="bi bi-graph-up-arrow"></i></div>

@@ -4,17 +4,8 @@ require_once __DIR__ . '/url_helpers.php';
 require_once __DIR__ . '/security.php';
 
 // Internal helpers for the header
-// We use relative paths here because the <base> tag handles the application root.
 $url = static function (string $path = ''): string {
-    $rawPath = str_replace('\\', '/', $path);
-    if (preg_match('#^(https?:)?//#', $rawPath)) {
-        return $rawPath;
-    }
-    return trim($rawPath, '/');
-};
-
-$asset = static function (string $path): string {
-    return trim(str_replace('\\', '/', $path), '/');
+    return dfps_helper_url($path);
 };
 
 // Define configuration based on role
@@ -27,7 +18,7 @@ $da_links = [
     ['url' => $url('da/reports'), 'icon' => 'bi-file-earmark-bar-graph', 'label' => 'System Reports'],
     ['url' => $url('da/message'), 'icon' => 'bi-chat-dots', 'label' => 'Messages'],
     ['url' => $url('da/produce'), 'icon' => 'bi-egg-fried', 'label' => 'Produce Master List'],
-    ['url' => $url('da/resource_requests'), 'icon' => 'bi-file-earmark-text', 'label' => 'Resource Requests'],
+    ['url' => $url('da/resource_requests'), 'icon' => 'bi-file-earmark-text', 'label' => 'Resource Requests'],  
     ['url' => $url('da/announcements'), 'icon' => 'bi-megaphone', 'label' => 'Announcements'],
     ['url' => $url('da/send_notification'), 'icon' => 'bi-broadcast', 'label' => 'Broadcast Alert'],
 ];
@@ -37,7 +28,7 @@ $config = [
         'primary_color' => '#28a745',
         'secondary_color' => '#218838',
         'title' => 'Farmer Dashboard',
-        'brand' => 'DFPS Farmer',
+        'brand' => 'DFPS',
         'menu_header' => 'Farmer Menu',
         'links' => [
             ['url' => $url('farmer/'), 'icon' => 'bi-speedometer2', 'label' => 'Dashboard'],
@@ -65,7 +56,7 @@ $config = [
         'menu_header' => 'Super Admin Menu',
         'links' => array_merge($da_links, [
             ['url' => $url('da/create_da'), 'icon' => 'bi-person-plus-fill', 'label' => 'DA Accounts Management'],
-            ['url' => $url('da/backup'), 'icon' => 'bi-database-fill-gear', 'label' => 'Backup & Restore'],
+            ['url' => $url('da/backup'), 'icon' => 'bi-database-fill-gear', 'label' => 'Backup & Restore'],     
         ])
     ],
     'BUYER' => [
@@ -94,7 +85,7 @@ $config = [
 ];
 
 $current_config = $config[$role] ?? $config['GUEST'];
-$sys_version = '1.0.5'; // Increment for cache busting
+$sys_version = '1.1.1'; 
 
 // Fetch unread counts
 $unread_notif_count = 0;
@@ -102,7 +93,7 @@ $unread_msg_count = 0;
 if (isset($_SESSION['user_id']) && isset($conn)) {
     include_once __DIR__ . '/NotificationModel.php';
     $unread_notif_count = NotificationModel::countUnread($conn, $_SESSION['user_id']);
-    
+
     if ($role === 'FARMER' || $role === 'BUYER' || $role === 'DA' || $role === 'DA_SUPER_ADMIN') {
         $msg_count_sql = "SELECT COUNT(m.id) as c FROM messages m JOIN conversation_participants cp ON m.conversation_id = cp.conversation_id WHERE cp.user_id = ? AND m.sender_id != ? AND m.read_at IS NULL AND m.is_deleted = 0";
         $msg_count_stmt = $conn->prepare($msg_count_sql);
@@ -123,7 +114,7 @@ if (isset($_SESSION['user_id']) && isset($conn)) {
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title><?php echo htmlspecialchars($current_config['title']); ?></title>
 
-  <?php 
+  <?php
     $base_path = rtrim(dfps_helper_url('/'), '/') . '/';
   ?>
   <base href="<?php echo htmlspecialchars($base_path); ?>">
@@ -134,19 +125,23 @@ if (isset($_SESSION['user_id']) && isset($conn)) {
   <link rel="stylesheet" href="css/message.css?v=<?php echo $sys_version; ?>">
   <link rel="stylesheet" href="css/notification.css?v=<?php echo $sys_version; ?>">
   <link rel="stylesheet" href="css/auth.css?v=<?php echo $sys_version; ?>">
-  
+
   <link rel="icon" type="image/svg+xml" href="<?php echo dfps_helper_url('pic/image/Da_logo.svg'); ?>">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css" crossorigin="anonymous">
 
   <script src="bootstrap/js/bootstrap.bundle.min.js" defer></script>
   <script src="js/realtime.js?v=<?php echo $sys_version; ?>" defer></script>
-  
+
+  <script>
+    window.CSRF_TOKEN = '<?php echo get_csrf_token(); ?>';
+    window.DFPS_APP_ROOT = '<?php echo rtrim(dfps_helper_app_root(), '/'); ?>';
+  </script>
+
   <style>
     :root {
       --primary-color: <?php echo $current_config['primary_color']; ?>;
       --secondary-color: <?php echo $current_config['secondary_color']; ?>;
     }
-    /* Hide Google Translate UI elements */
     .goog-te-banner-frame.skiptranslate, .goog-te-gadget-icon { display: none !important; }
     body { top: 0px !important; }
     .goog-te-gadget-simple { background-color: transparent !important; border: none !important; }
@@ -192,22 +187,22 @@ if (isset($_SESSION['user_id']) && isset($conn)) {
     <button type="button" class="hamburger-btn" id="menuBtn">
       <i class="bi bi-list"></i>
     </button>
-    <?php 
+    <?php
       $brand_url = $url();
       if ($role === 'FARMER') $brand_url = $url('farmer/');
       elseif ($role === 'BUYER') $brand_url = $url('buyer/');
       elseif (in_array($role, ['DA', 'DA_SUPER_ADMIN'])) $brand_url = $url('da/');
     ?>
     <a href="<?php echo htmlspecialchars($brand_url); ?>" class="app-title-link">
-      <img src="<?php echo dfps_helper_url('pic/image/Da_logo.svg'); ?>" alt="Logo" class="header-logo">
+      <img src="<?php echo dfps_helper_url('pic/image/Da_logo.svg'); ?>" alt="Logo" class="header-logo">        
       <span class="app-title"><?php echo htmlspecialchars($current_config['brand']); ?></span>
     </a>
   </div>
 
   <div class="header-right">
-    <!-- Blended Language Switcher Icon -->
+    <!-- Language Switcher -->
     <div class="dropdown">
-      <a href="#" class="header-item dropdown-toggle border-0" data-bs-toggle="dropdown" aria-expanded="false">
+      <a href="#" class="header-item dropdown-toggle border-0" data-bs-toggle="dropdown" aria-expanded="false"> 
         <i class="bi bi-translate"></i>
         <span class="d-none d-md-block" id="current-lang-label">English</span>
       </a>
@@ -225,13 +220,13 @@ if (isset($_SESSION['user_id']) && isset($conn)) {
     ?>
     <a href="<?php echo htmlspecialchars($msg_url); ?>" class="header-item">
       <i class="bi bi-chat-dots"></i>
-      <span class="d-none d-md-block">Message</span>
+      <span class="d-none d-md-block">Messages</span>
       <?php if ($unread_msg_count > 0): ?>
           <span class="badge rounded-pill bg-danger"><?php echo $unread_msg_count; ?></span>
       <?php endif; ?>
     </a>
 
-    <?php 
+    <?php
       $notif_url = ($role === 'FARMER') ? $url('farmer/notification') : (($role === 'BUYER') ? $url('buyer/notification') : $url('da/notification'));
     ?>
     <a href="<?php echo htmlspecialchars($notif_url); ?>" class="header-item">
@@ -252,42 +247,43 @@ if (isset($_SESSION['user_id']) && isset($conn)) {
 </header>
 
 <script type="text/javascript">
-window.DFPS_APP_ROOT = <?php echo json_encode(function_exists('dfps_helper_app_root') ? dfps_helper_app_root() : ''); ?>;
-window.CSRF_TOKEN = <?php echo json_encode(get_csrf_token()); ?>;
-
-function escapeHTML(str) {
-    if (!str) return '';
-    return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
-}
-
 function googleTranslateElementInit() {
   new google.translate.TranslateElement({pageLanguage: 'en', includedLanguages: 'en,ceb', autoDisplay: false}, 'google_translate_element');
 }
 
 function changeLanguage(langCode, label) {
+    document.getElementById('current-lang-label').textContent = label;
+    localStorage.setItem('dfps_lang', langCode);
+    localStorage.setItem('dfps_lang_label', label);
+
     var selectField = document.querySelector(".goog-te-combo");
     if (selectField) {
         selectField.value = langCode;
         selectField.dispatchEvent(new Event('change'));
-        document.getElementById('current-lang-label').textContent = label;
-        localStorage.setItem('dfps_lang', langCode);
-        localStorage.setItem('dfps_lang_label', label);
     }
 }
 
 document.addEventListener('DOMContentLoaded', function() {
     var savedLang = localStorage.getItem('dfps_lang') || 'en';
     var savedLabel = localStorage.getItem('dfps_lang_label') || 'English';
+
     document.getElementById('current-lang-label').textContent = savedLabel;
-    
-    setTimeout(function() {
-        if(savedLang !== 'en') changeLanguage(savedLang, savedLabel);
-    }, 1500);
+
+    function sync() {
+        var selectField = document.querySelector(".goog-te-combo");
+        if (selectField && savedLang !== 'en') {
+            selectField.value = savedLang;
+            selectField.dispatchEvent(new Event('change'));
+            return true;
+        }
+        return !!selectField;
+    }
+
+    let attempts = 0;
+    const interval = setInterval(() => {
+        if (sync() || attempts > 30) clearInterval(interval);
+        attempts++;
+    }, 500);
 
     const menuBtn = document.getElementById('menuBtn');
     const closeSidebar = document.getElementById('closeSidebar');
@@ -295,8 +291,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const sidebarOverlay = document.getElementById('sidebarOverlay');
 
     function toggleSidebar() {
-      appSidebar.classList.toggle('active');
-      sidebarOverlay.classList.toggle('active');
+      if(appSidebar) appSidebar.classList.toggle('active');
+      if(sidebarOverlay) sidebarOverlay.classList.toggle('active');
     }
 
     if(menuBtn) menuBtn.addEventListener('click', toggleSidebar);
@@ -304,9 +300,26 @@ document.addEventListener('DOMContentLoaded', function() {
     if(sidebarOverlay) sidebarOverlay.addEventListener('click', toggleSidebar);
 });
 </script>
-<script type="text/javascript" src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+<script type="text/javascript" src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
 
-<!-- Global System Alert Modal -->
+<div class="modal fade" id="confirmActionModal" tabindex="-1" aria-hidden="true" style="z-index: 1060;">
+  <div class="modal-dialog modal-dialog-centered modal-sm">
+    <div class="modal-content border-0 shadow-lg rounded-4">
+      <div class="modal-body p-4 text-center">
+        <div class="mb-3">
+          <i class="bi bi-question-circle text-warning" style="font-size: 3rem;"></i>
+        </div>
+        <h5 class="fw-bold mb-2" id="confirmTitle">Are you sure?</h5>
+        <p class="text-secondary mb-4" id="confirmBody">Do you really want to proceed with this action?</p>
+        <div class="d-flex gap-2 justify-content-center">
+          <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary rounded-pill px-4" id="confirmActionBtn">Confirm</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="modal fade" id="systemAlertModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content border-0 shadow-lg rounded-4">
@@ -318,9 +331,11 @@ document.addEventListener('DOMContentLoaded', function() {
         <p class="mb-0 text-secondary" id="alertBody"></p>
       </div>
       <div class="modal-footer border-0 pt-0">
-        <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Close</button>
+        <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Close</button>    
         <a href="#" id="alertLink" class="btn btn-primary rounded-pill px-4">View Details</a>
       </div>
     </div>
   </div>
 </div>
+</body>
+</html>

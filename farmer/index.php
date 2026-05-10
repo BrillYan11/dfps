@@ -214,7 +214,6 @@ include '../includes/universal_header.php';
   </main>
 
   <script>
-    window.CSRF_TOKEN = '<?php echo get_csrf_token(); ?>';
     document.addEventListener('DOMContentLoaded', function() {
         const productGrid = document.getElementById('productGrid');
         const resultsCount = document.getElementById('resultsCount');

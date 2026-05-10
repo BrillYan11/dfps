@@ -66,7 +66,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_announcement']
                 $n_stmt->close();
             } else {
                 $user_res = $conn->query($notif_query);
-                while($u = $user_res->fetch_assoc()) {
+                $users = dfps_fetch_all($user_res);
+                foreach($users as $u) {
                     NotificationModel::createNotification($conn, $u['id'], 'ANNOUNCEMENT', $title, $body, 'notification.php');
                 }
             }
@@ -121,7 +122,7 @@ include '../includes/universal_header.php';
                         <div class="alert alert-danger"><?php echo $error_msg; ?></div>
                     <?php endif; ?>
 
-                    <form method="POST" action="da/announcements.php">
+                    <form method="POST" action="<?php echo dfps_helper_url('da/announcements'); ?>">
                         <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(get_csrf_token()); ?>">
                         <div class="mb-3">
                             <label class="form-label">Title</label>
@@ -170,10 +171,15 @@ include '../includes/universal_header.php';
                                 <?php else: ?>
                                     <?php foreach($announcements as $ann): ?>
                                         <tr>
-                                            <td class="ps-4"><small><?php echo date('M j, Y h:i A', strtotime($ann['created_at'])); ?></small></td>
-                                            <td><span class="badge <?php echo $ann['area_id'] ? 'bg-info' : 'bg-secondary'; ?>"><?php echo htmlspecialchars($ann['area_name'] ?: 'Global'); ?></span></td>
-                                            <td class="fw-semibold"><?php echo htmlspecialchars($ann['title']); ?></td>
-                                            <td><?php echo htmlspecialchars($ann['first_name'].' '.$ann['last_name']); ?></td>
+                                            <td class="ps-4 text-muted"><small><i class="bi bi-calendar3 me-1"></i> <?php echo date('M j, Y h:i A', strtotime($ann['created_at'])); ?></small></td>
+                                            <td>
+                                                <span class="badge rounded-pill <?php echo $ann['area_id'] ? 'bg-info-subtle text-info border border-info' : 'bg-secondary-subtle text-secondary border border-secondary'; ?> px-3">
+                                                    <i class="bi <?php echo $ann['area_id'] ? 'bi-geo-alt-fill' : 'bi-globe'; ?> me-1"></i>
+                                                    <?php echo htmlspecialchars($ann['area_name'] ?: 'Global'); ?>
+                                                </span>
+                                            </td>
+                                            <td class="fw-semibold text-dark"><?php echo htmlspecialchars($ann['title']); ?></td>
+                                            <td><div class="small fw-bold"><i class="bi bi-person-badge me-1"></i> <?php echo htmlspecialchars($ann['first_name'].' '.$ann['last_name']); ?></div></td>
                                             <td class="text-end pe-4">
                                                 <div class="d-flex justify-content-end gap-1">
                                                     <button class="btn btn-sm btn-outline-primary rounded-circle view-details" 
